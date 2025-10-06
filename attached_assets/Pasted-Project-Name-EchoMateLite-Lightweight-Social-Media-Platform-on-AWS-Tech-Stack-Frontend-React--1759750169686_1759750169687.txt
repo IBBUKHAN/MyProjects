@@ -1,0 +1,159 @@
+Project Name: EchoMateLite – Lightweight Social Media Platform on AWS
+
+Tech Stack:
+
+Frontend: React + TailwindCSS + Vite (modern, fast build)
+
+Backend: NestJS + TypeORM + PostgreSQL
+
+Auth: JWT (Access + Refresh tokens)
+
+Storage: AWS S3 (for profile images & post media)
+
+Deployment: AWS EC2 + RDS + S3 + CloudFront
+
+Styling: Use Glassmorphism UI (subtle, not full transparency) inspired by LinkedIn’s clean layout — modern, minimal, professional look.
+
+🎯 Frontend Requirements (React)
+
+Use React (Vite) + TailwindCSS + Framer Motion for animations.
+
+Design the UI inspired by LinkedIn but custom (avoid copying).
+
+Implement glassmorphism in profile cards, post feeds, and sidebars.
+
+Fully responsive layout for desktop, tablet, and mobile.
+
+Main Pages
+
+Login / Register
+
+Form validation and password strength meter.
+
+Connect with backend JWT auth APIs.
+
+Home Feed
+
+Display posts in reverse chronological order.
+
+Show username, profile picture, post text, timestamp.
+
+Like and comment buttons (UI only).
+
+Create Post
+
+Input for text post + upload media to S3.
+
+Profile Page
+
+Show user info, profile pic (upload/update), bio, and user’s posts.
+
+Navigation Bar
+
+Logo, Home, Profile, Logout icons.
+
+Dark / Light Mode Toggle
+
+Additional
+
+Axios for API calls
+
+Zustand or Redux Toolkit for state management
+
+Toast notifications for success/error
+
+Lazy loading for images
+
+⚙️ Backend Requirements (NestJS)
+
+Create a NestJS REST API with TypeORM + PostgreSQL.
+
+Folder structure: src/modules/{auth,users,posts,upload}
+
+Environment configuration using @nestjs/config
+
+Entities
+
+User
+
+id, name, email, password (hashed), bio, profilePicUrl, createdAt
+
+Post
+
+id, content, imageUrl, createdAt, updatedAt
+
+relation: many posts belong to one user
+
+Core Features
+
+Authentication:
+
+Register, Login, Logout
+
+JWT-based (access + refresh tokens)
+
+Password hashing with bcrypt
+
+User Module:
+
+CRUD profile
+
+Upload profile picture → AWS S3
+
+Post Module:
+
+Create / read / delete post
+
+Upload post media to S3
+
+Security:
+
+HTTPS-ready config (for AWS)
+
+Helmet + CORS + rate limiting
+
+Logging & Monitoring:
+
+Winston logger integration
+
+Health check endpoint /health
+
+☁️ AWS Deployment Plan
+
+Frontend: Host static files on S3 + CloudFront CDN
+
+Backend: Deploy on EC2 (Ubuntu + Nginx reverse proxy)
+
+Database: Use RDS (PostgreSQL)
+
+Storage: S3 bucket for uploads
+
+Monitoring: CloudWatch metrics
+
+SSL/TLS: AWS ACM for HTTPS
+
+🧩 Design System
+
+Font: Inter or Poppins
+
+Colors:
+
+Background: #0a0a0a (dark mode) or #f9fafb (light mode)
+
+Primary: #0077b5 (LinkedIn-like blue accent)
+
+Glass panels: rgba(255,255,255,0.15) with blur(12px)
+
+Rounded corners, drop shadows, soft gradients.
+
+📦 Final Deliverables
+
+/frontend → React app with Tailwind
+
+/backend → NestJS app with TypeORM
+
+.env.example for all config variables
+
+Dockerfile + docker-compose.yml for local setup
+
+AWS deployment guide in README.md
