@@ -2,15 +2,39 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    // Try to parse a structured JSON error and surface a clean message
+    let message = res.statusText;
+    try {
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const body = await res.json();
+        if (
+          body &&
+          typeof body.message === "string" &&
+          body.message.trim().length > 0
+        ) {
+          message = body.message;
+        } else {
+          // Fallback to raw JSON string if no message field
+          message = JSON.stringify(body);
+        }
+      } else {
+        const text = await res.text();
+        message = text || message;
+      }
+    } catch (_e) {
+      // If parsing fails, fall back to status text
+    }
+
+    // Throw only the human-friendly message (UI will display just this)
+    throw new Error(message);
   }
 }
 
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown | undefined,
+  data?: unknown | undefined
 ): Promise<Response> {
   const res = await fetch(url, {
     method,

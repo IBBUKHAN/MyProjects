@@ -25,6 +25,12 @@ function AuthCheck({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // If there is no token (e.g., user deleted or logged out elsewhere),
+    // ensure local auth state is cleared immediately to avoid 401 spam.
+    if (!authApi.getToken() && (user || isAuthenticated)) {
+      setUser(null);
+    }
+
     if (currentUser) {
       setUser(currentUser);
     } else if (!isAuthenticated) {

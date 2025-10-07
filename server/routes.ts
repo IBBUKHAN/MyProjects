@@ -93,7 +93,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await storage.getUserByEmail(validatedData.email);
       if (!user) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res
+          .status(401)
+          .json({ message: "Incorrect email or password. Please try again." });
       }
 
       const isValidPassword = await bcrypt.compare(
@@ -101,7 +103,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user.password
       );
       if (!isValidPassword) {
-        return res.status(401).json({ message: "Invalid credentials" });
+        return res
+          .status(401)
+          .json({ message: "Incorrect email or password. Please try again." });
       }
 
       // Generate JWT token
@@ -139,7 +143,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      const counts = await storage.getFollowCounts(user.id);
+      const isFollowing = await storage.isFollowing(req.user.id, user.id);
+      res.json({
+        ...userWithoutPassword,
+        followers: counts.followers,
+        following: counts.following,
+        isFollowing,
+      });
     } catch (error) {
       console.error("Get user error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -166,7 +177,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { password, ...userWithoutPassword } = user;
-      res.json(userWithoutPassword);
+      const counts = await storage.getFollowCounts(user.id);
+      const isFollowing = await storage.isFollowing(req.user.id, user.id);
+      res.json({
+        ...userWithoutPassword,
+        followers: counts.followers,
+        following: counts.following,
+        isFollowing,
+      });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
@@ -358,6 +376,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
+
+  // Follow routes
+  app.post(
+    "/api/users/:id/follow",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const targetUserId = req.params.id;
+        if (targetUserId === req.user.id) {
+          return res
+            .status(400)
+            .json({ message: "You cannot follow yourself" });
+        }
+        await storage.follow(req.user.id, targetUserId);
+        const counts = await storage.getFollowCounts(targetUserId);
+        res.json({ followers: counts.followers });
+      } catch (error) {
+        console.error("Follow user error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  app.delete(
+    "/api/users/:id/follow",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const targetUserId = req.params.id;
+        await storage.unfollow(req.user.id, targetUserId);
+        const counts = await storage.getFollowCounts(targetUserId);
+        res.json({ followers: counts.followers });
+      } catch (error) {
+        console.error("Unfollow user error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
 
   const httpServer = createServer(app);
   return httpServer;

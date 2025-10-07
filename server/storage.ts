@@ -1,9 +1,10 @@
-import { 
-  users, 
-  posts, 
-  postLikes, 
+import {
+  users,
+  posts,
+  postLikes,
   postComments,
-  type User, 
+  follows,
+  type User,
   type InsertUser,
   type Post,
   type InsertPost,
@@ -11,7 +12,8 @@ import {
   type InsertPostLike,
   type PostComment,
   type InsertPostComment,
-  type PostWithAuthor
+  type PostWithAuthor,
+  type Follow,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and } from "drizzle-orm";
@@ -22,24 +24,40 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(insertUser: InsertUser): Promise<User>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
-  
+
   // Post methods
   getPosts(userId: string): Promise<PostWithAuthor[]>;
   getPost(id: string): Promise<Post | undefined>;
-  getPostWithAuthor(id: string, currentUserId: string): Promise<PostWithAuthor | undefined>;
-  getUserPosts(userId: string, currentUserId: string): Promise<PostWithAuthor[]>;
+  getPostWithAuthor(
+    id: string,
+    currentUserId: string
+  ): Promise<PostWithAuthor | undefined>;
+  getUserPosts(
+    userId: string,
+    currentUserId: string
+  ): Promise<PostWithAuthor[]>;
   createPost(insertPost: InsertPost): Promise<Post>;
   deletePost(id: string): Promise<void>;
-  
+
   // Like methods
   getPostLike(postId: string, userId: string): Promise<PostLike | undefined>;
   createPostLike(insertLike: InsertPostLike): Promise<PostLike>;
   deletePostLike(postId: string, userId: string): Promise<void>;
-  
+
   // Comment methods
   getPostComments(postId: string): Promise<Array<PostComment & { user: User }>>;
-  getCommentWithUser(commentId: string): Promise<(PostComment & { user: User }) | undefined>;
+  getCommentWithUser(
+    commentId: string
+  ): Promise<(PostComment & { user: User }) | undefined>;
   createPostComment(insertComment: InsertPostComment): Promise<PostComment>;
+
+  // Follow methods
+  follow(followerId: string, followingId: string): Promise<Follow>;
+  unfollow(followerId: string, followingId: string): Promise<void>;
+  getFollowCounts(
+    userId: string
+  ): Promise<{ followers: number; following: number }>;
+  isFollowing(followerId: string, followingId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -55,14 +73,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
-  async updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined> {
+  async updateUser(
+    id: string,
+    data: Partial<InsertUser>
+  ): Promise<User | undefined> {
     const [user] = await db
       .update(users)
       .set(data)
@@ -80,17 +98,26 @@ export class DatabaseStorage implements IStorage {
 
     const postsWithDetails = await Promise.all(
       postsData.map(async (post) => {
-        const [author] = await db.select().from(users).where(eq(users.id, post.userId));
-        const likes = await db.select().from(postLikes).where(eq(postLikes.postId, post.id));
-        const comments = await db.select().from(postComments).where(eq(postComments.postId, post.id));
-        const isLiked = likes.some(like => like.userId === userId);
+        const [author] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, post.userId));
+        const likes = await db
+          .select()
+          .from(postLikes)
+          .where(eq(postLikes.postId, post.id));
+        const comments = await db
+          .select()
+          .from(postComments)
+          .where(eq(postComments.postId, post.id));
+        const isLiked = likes.some((like) => like.userId === userId);
 
         return {
           ...post,
           author,
           likes,
           comments,
-          isLiked
+          isLiked,
         };
       })
     );
@@ -103,25 +130,40 @@ export class DatabaseStorage implements IStorage {
     return post || undefined;
   }
 
-  async getPostWithAuthor(id: string, currentUserId: string): Promise<PostWithAuthor | undefined> {
+  async getPostWithAuthor(
+    id: string,
+    currentUserId: string
+  ): Promise<PostWithAuthor | undefined> {
     const [post] = await db.select().from(posts).where(eq(posts.id, id));
     if (!post) return undefined;
 
-    const [author] = await db.select().from(users).where(eq(users.id, post.userId));
-    const likes = await db.select().from(postLikes).where(eq(postLikes.postId, post.id));
-    const comments = await db.select().from(postComments).where(eq(postComments.postId, post.id));
-    const isLiked = likes.some(like => like.userId === currentUserId);
+    const [author] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, post.userId));
+    const likes = await db
+      .select()
+      .from(postLikes)
+      .where(eq(postLikes.postId, post.id));
+    const comments = await db
+      .select()
+      .from(postComments)
+      .where(eq(postComments.postId, post.id));
+    const isLiked = likes.some((like) => like.userId === currentUserId);
 
     return {
       ...post,
       author,
       likes,
       comments,
-      isLiked
+      isLiked,
     };
   }
 
-  async getUserPosts(userId: string, currentUserId: string): Promise<PostWithAuthor[]> {
+  async getUserPosts(
+    userId: string,
+    currentUserId: string
+  ): Promise<PostWithAuthor[]> {
     const postsData = await db
       .select()
       .from(posts)
@@ -130,17 +172,26 @@ export class DatabaseStorage implements IStorage {
 
     const postsWithDetails = await Promise.all(
       postsData.map(async (post) => {
-        const [author] = await db.select().from(users).where(eq(users.id, post.userId));
-        const likes = await db.select().from(postLikes).where(eq(postLikes.postId, post.id));
-        const comments = await db.select().from(postComments).where(eq(postComments.postId, post.id));
-        const isLiked = likes.some(like => like.userId === currentUserId);
+        const [author] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, post.userId));
+        const likes = await db
+          .select()
+          .from(postLikes)
+          .where(eq(postLikes.postId, post.id));
+        const comments = await db
+          .select()
+          .from(postComments)
+          .where(eq(postComments.postId, post.id));
+        const isLiked = likes.some((like) => like.userId === currentUserId);
 
         return {
           ...post,
           author,
           likes,
           comments,
-          isLiked
+          isLiked,
         };
       })
     );
@@ -149,10 +200,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPost(insertPost: InsertPost): Promise<Post> {
-    const [post] = await db
-      .insert(posts)
-      .values(insertPost)
-      .returning();
+    const [post] = await db.insert(posts).values(insertPost).returning();
     return post;
   }
 
@@ -161,7 +209,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Like methods
-  async getPostLike(postId: string, userId: string): Promise<PostLike | undefined> {
+  async getPostLike(
+    postId: string,
+    userId: string
+  ): Promise<PostLike | undefined> {
     const [like] = await db
       .select()
       .from(postLikes)
@@ -170,10 +221,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createPostLike(insertLike: InsertPostLike): Promise<PostLike> {
-    const [like] = await db
-      .insert(postLikes)
-      .values(insertLike)
-      .returning();
+    const [like] = await db.insert(postLikes).values(insertLike).returning();
     return like;
   }
 
@@ -184,7 +232,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Comment methods
-  async getPostComments(postId: string): Promise<Array<PostComment & { user: User }>> {
+  async getPostComments(
+    postId: string
+  ): Promise<Array<PostComment & { user: User }>> {
     const commentsData = await db
       .select()
       .from(postComments)
@@ -193,10 +243,13 @@ export class DatabaseStorage implements IStorage {
 
     const commentsWithUsers = await Promise.all(
       commentsData.map(async (comment) => {
-        const [user] = await db.select().from(users).where(eq(users.id, comment.userId));
+        const [user] = await db
+          .select()
+          .from(users)
+          .where(eq(users.id, comment.userId));
         return {
           ...comment,
-          user
+          user,
         };
       })
     );
@@ -204,24 +257,82 @@ export class DatabaseStorage implements IStorage {
     return commentsWithUsers;
   }
 
-  async getCommentWithUser(commentId: string): Promise<(PostComment & { user: User }) | undefined> {
-    const [comment] = await db.select().from(postComments).where(eq(postComments.id, commentId));
+  async getCommentWithUser(
+    commentId: string
+  ): Promise<(PostComment & { user: User }) | undefined> {
+    const [comment] = await db
+      .select()
+      .from(postComments)
+      .where(eq(postComments.id, commentId));
     if (!comment) return undefined;
 
-    const [user] = await db.select().from(users).where(eq(users.id, comment.userId));
-    
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, comment.userId));
+
     return {
       ...comment,
-      user
+      user,
     };
   }
 
-  async createPostComment(insertComment: InsertPostComment): Promise<PostComment> {
+  async createPostComment(
+    insertComment: InsertPostComment
+  ): Promise<PostComment> {
     const [comment] = await db
       .insert(postComments)
       .values(insertComment)
       .returning();
     return comment;
+  }
+
+  // Follow methods
+  async follow(followerId: string, followingId: string): Promise<Follow> {
+    const [row] = await db
+      .insert(follows)
+      .values({ followerId, followingId })
+      .onConflictDoNothing()
+      .returning();
+    return row as Follow;
+  }
+
+  async unfollow(followerId: string, followingId: string): Promise<void> {
+    await db
+      .delete(follows)
+      .where(
+        and(
+          eq(follows.followerId, followerId),
+          eq(follows.followingId, followingId)
+        )
+      );
+  }
+
+  async getFollowCounts(
+    userId: string
+  ): Promise<{ followers: number; following: number }> {
+    const followersRows = await db
+      .select()
+      .from(follows)
+      .where(eq(follows.followingId, userId));
+    const followingRows = await db
+      .select()
+      .from(follows)
+      .where(eq(follows.followerId, userId));
+    return { followers: followersRows.length, following: followingRows.length };
+  }
+
+  async isFollowing(followerId: string, followingId: string): Promise<boolean> {
+    const [row] = await db
+      .select()
+      .from(follows)
+      .where(
+        and(
+          eq(follows.followerId, followerId),
+          eq(follows.followingId, followingId)
+        )
+      );
+    return !!row;
   }
 }
 

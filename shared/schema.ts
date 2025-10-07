@@ -1,11 +1,20 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  varchar,
+  timestamp,
+  boolean,
+  primaryKey,
+} from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
   password: text("password").notNull(),
   name: text("name").notNull(),
@@ -15,33 +24,68 @@ export const users = pgTable("users", {
 });
 
 export const posts = pgTable("posts", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
   content: text("content").notNull(),
   imageUrl: text("image_url"),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id)
+    .notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const postLikes = pgTable("post_likes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  postId: varchar("post_id").references(() => posts.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  postId: varchar("post_id")
+    .references(() => posts.id)
+    .notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id)
+    .notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const postComments = pgTable("post_comments", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  postId: varchar("post_id").references(() => posts.id).notNull(),
-  userId: varchar("user_id").references(() => users.id).notNull(),
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  postId: varchar("post_id")
+    .references(() => posts.id)
+    .notNull(),
+  userId: varchar("user_id")
+    .references(() => users.id)
+    .notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
+
+// Social graph: who follows whom
+export const follows = pgTable(
+  "follows",
+  {
+    followerId: varchar("follower_id")
+      .references(() => users.id)
+      .notNull(),
+    followingId: varchar("following_id")
+      .references(() => users.id)
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.followerId, table.followingId] }),
+  })
+);
 
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
   likes: many(postLikes),
   comments: many(postComments),
+  // followers: users who follow this user
+  // followings: users this user follows
 }));
 
 export const postsRelations = relations(posts, ({ one, many }) => ({
@@ -75,6 +119,17 @@ export const postCommentsRelations = relations(postComments, ({ one }) => ({
   }),
 }));
 
+export const followsRelations = relations(follows, ({ one }) => ({
+  follower: one(users, {
+    fields: [follows.followerId],
+    references: [users.id],
+  }),
+  following: one(users, {
+    fields: [follows.followingId],
+    references: [users.id],
+  }),
+}));
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -102,9 +157,13 @@ export const loginSchema = z.object({
 });
 
 export const registerSchema = insertUserSchema.extend({
-  password: z.string().min(8).regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/, 
-    "Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character"
-  ),
+  password: z
+    .string()
+    .min(8)
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/,
+      "Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character"
+    ),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -115,6 +174,7 @@ export type User = typeof users.$inferSelect;
 export type Post = typeof posts.$inferSelect;
 export type PostLike = typeof postLikes.$inferSelect;
 export type PostComment = typeof postComments.$inferSelect;
+export type Follow = typeof follows.$inferSelect;
 export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
 
