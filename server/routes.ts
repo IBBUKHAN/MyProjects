@@ -360,6 +360,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/posts/:id/likes", authenticateToken, async (req: any, res) => {
+    try {
+      const likeUsers = await storage.getPostLikeUsers(req.params.id);
+      const sanitized = likeUsers.map(({ password, ...u }) => u);
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Get post likes error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Comment routes
   app.post(
     "/api/posts/:id/comments",

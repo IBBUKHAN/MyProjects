@@ -44,6 +44,7 @@ export interface IStorage {
   getPostLike(postId: string, userId: string): Promise<PostLike | undefined>;
   createPostLike(insertLike: InsertPostLike): Promise<PostLike>;
   deletePostLike(postId: string, userId: string): Promise<void>;
+  getPostLikeUsers(postId: string): Promise<User[]>;
 
   // Comment methods
   getPostComments(postId: string): Promise<Array<PostComment & { user: User }>>;
@@ -252,6 +253,23 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(postLikes)
       .where(and(eq(postLikes.postId, postId), eq(postLikes.userId, userId)));
+  }
+
+  async getPostLikeUsers(postId: string): Promise<User[]> {
+    const likes = await db
+      .select()
+      .from(postLikes)
+      .where(eq(postLikes.postId, postId));
+
+    const userIds = likes.map((like) => like.userId);
+    if (userIds.length === 0) return [];
+
+    const likeUsers = await db
+      .select()
+      .from(users)
+      .where(inArray(users.id, userIds));
+
+    return likeUsers;
   }
 
   // Comment methods

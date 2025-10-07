@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   Heart,
   MessageCircle,
@@ -19,7 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import type { PostWithAuthor } from "@shared/schema";
+import type { PostWithAuthor, User } from "@shared/schema";
 import { useAuthStore } from "@/lib/store";
 import {
   Dialog,
@@ -39,10 +40,12 @@ export function PostCard({ post }: PostCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const [, navigate] = useLocation();
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editContent, setEditContent] = useState(post.content);
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [showLikesModal, setShowLikesModal] = useState(false);
 
   const { data: commentsData } = useQuery<
     {
@@ -59,6 +62,18 @@ export function PostCard({ post }: PostCardProps) {
       const res = await authenticatedApiRequest(
         "GET",
         `/api/posts/${post.id}/comments`
+      );
+      return res.json();
+    },
+  });
+
+  const { data: likeUsers } = useQuery<Omit<User, "password">[]>({
+    queryKey: ["/api/posts", post.id, "likes"],
+    enabled: showLikesModal,
+    queryFn: async () => {
+      const res = await authenticatedApiRequest(
+        "GET",
+        `/api/posts/${post.id}/likes`
       );
       return res.json();
     },
@@ -243,21 +258,28 @@ export function PostCard({ post }: PostCardProps) {
         </DialogContent>
       </Dialog>
       <div className="flex items-center gap-6 pt-4 border-t border-border">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLike}
-          className={`flex items-center gap-2 transition-colors ${
-            isLiked
-              ? "text-primary"
-              : "text-muted-foreground hover:text-primary"
-          }`}
-          disabled={likeMutation.isPending}
-          data-testid={`button-like-${post.id}`}
-        >
-          <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
-          <span className="text-sm font-medium">{likesCount}</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLike}
+            className={`flex items-center gap-2 transition-colors ${
+              isLiked
+                ? "text-primary"
+                : "text-muted-foreground hover:text-primary"
+            }`}
+            disabled={likeMutation.isPending}
+            data-testid={`button-like-${post.id}`}
+          >
+            <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
+          </Button>
+          <span
+            className="text-sm font-medium text-muted-foreground cursor-pointer hover:underline"
+            onClick={() => likesCount > 0 && setShowLikesModal(true)}
+          >
+            {likesCount}
+          </span>
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -382,6 +404,63 @@ export function PostCard({ post }: PostCardProps) {
           )}
         </div>
       )}
+
+      {/* Likes Modal */}
+      <Dialog open={showLikesModal} onOpenChange={setShowLikesModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Likes</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            {!likeUsers || likeUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No likes yet.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {likeUsers.map((likeUser) => (
+                  <div
+                    key={likeUser.id}
+                    className="flex items-center gap-3 p-2 hover:bg-accent/10 rounded-lg cursor-pointer"
+                    onClick={() => {
+                      setShowLikesModal(false);
+                      navigate(`/users/${likeUser.id}`);
+                    }}
+                  >
+                    <Avatar className="w-10 h-10">
+                      {likeUser.profilePictureUrl ? (
+                        <AvatarImage
+                          src={likeUser.profilePictureUrl}
+                          alt={likeUser.name}
+                        />
+                      ) : (
+                        <AvatarFallback>
+                          {likeUser.name
+                            .split(" ")
+                            .map((s) => s[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {likeUser.name}
+                      </p>
+                      {likeUser.bio && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {likeUser.bio}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
