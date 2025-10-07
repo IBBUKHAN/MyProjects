@@ -103,10 +103,22 @@ export default function UserProfile() {
       }
     },
     onSuccess: () => {
+      // Invalidate the profile user's data
       queryClient.invalidateQueries({
         queryKey: ["/api/users", profileUserId],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/suggestions"] });
+
+      // Invalidate current user's profile data to update following count
+      if (currentUser?.id) {
+        queryClient.invalidateQueries({
+          queryKey: [`/api/users/${currentUser.id}`],
+        });
+        queryClient.invalidateQueries({
+          queryKey: [`/api/users/${currentUser.id}/follow-counts`],
+        });
+      }
+
       toast({
         title: profileUser?.isFollowing ? "Unfollowed" : "Followed",
         description: profileUser?.isFollowing

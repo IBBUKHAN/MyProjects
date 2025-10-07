@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/form";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
+import { queryClient } from "@/lib/queryClient";
 import { Camera } from "lucide-react";
 import type { PostWithAuthor, User } from "@shared/schema";
 
@@ -178,6 +179,15 @@ export default function Profile() {
     });
     const updated = await res.json();
     useAuthStore.getState().setUser(updated);
+
+    // Invalidate queries to update profile data everywhere
+    queryClient.invalidateQueries({
+      queryKey: [`/api/users/${user.id}`],
+    });
+    queryClient.invalidateQueries({
+      queryKey: ["/api/auth/me"],
+    });
+
     setIsEditOpen(false);
   };
 
@@ -584,6 +594,18 @@ export default function Profile() {
                         ...(updated as any),
                         profilePictureUrl: cacheBusted,
                       } as any);
+
+                      // Invalidate queries to update profile picture everywhere
+                      queryClient.invalidateQueries({
+                        queryKey: [`/api/users/${user.id}`],
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: ["/api/auth/me"],
+                      });
+                      queryClient.invalidateQueries({
+                        queryKey: ["/api/posts"],
+                      });
+
                       setIsPhotoOpen(false);
                     }, "image/png");
                   }}
@@ -619,6 +641,12 @@ export default function Profile() {
                     alt="cover preview"
                     className="w-full h-full object-cover"
                   />
+                ) : user?.coverImageUrl ? (
+                  <img
+                    src={user.coverImageUrl}
+                    alt="current cover"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-r from-primary via-accent to-primary" />
                 )}
@@ -642,7 +670,7 @@ export default function Profile() {
                 }}
                 className="flex-1 bg-[#0a66c2] hover:bg-[#004182] text-white"
               >
-                Upload cover
+                {user?.coverImageUrl ? "Change cover" : "Upload cover"}
               </Button>
               {coverPreviewSrc && (
                 <Button
@@ -667,6 +695,14 @@ export default function Profile() {
 
                     // Update user in store
                     useAuthStore.getState().setUser(updated as any);
+
+                    // Invalidate queries to update cover image everywhere
+                    queryClient.invalidateQueries({
+                      queryKey: [`/api/users/${user.id}`],
+                    });
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/auth/me"],
+                    });
 
                     setIsCoverOpen(false);
                     setCoverPreviewSrc(null);

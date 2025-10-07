@@ -363,6 +363,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ liked: false });
       } else {
         await storage.createPostLike({ postId, userId });
+
+        // Create notification for post author
+        const post = await storage.getPost(postId);
+        if (post && post.userId !== userId) {
+          try {
+            await storage.createNotification({
+              userId: post.userId,
+              actorId: userId,
+              type: "like",
+              postId,
+            });
+          } catch (notifError) {
+            console.error("Failed to create like notification:", notifError);
+            // Don't fail the like action if notification fails
+          }
+        }
+
         res.json({ liked: true });
       }
     } catch (error) {
@@ -572,6 +589,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .json({ message: "You cannot follow yourself" });
         }
         await storage.follow(req.user.id, targetUserId);
+
+        // Create notification for the followed user
+        try {
+          await storage.createNotification({
+            userId: targetUserId,
+            actorId: req.user.id,
+            type: "follow",
+          });
+        } catch (notifError) {
+          console.error("Failed to create follow notification:", notifError);
+          // Don't fail the follow action if notification fails
+        }
+
         const counts = await storage.getFollowCounts(targetUserId);
         res.json({ followers: counts.followers });
       } catch (error) {
@@ -622,6 +652,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(sanitized);
       } catch (error) {
         console.error("Get following error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  // Notification routes
+  app.get("/api/notifications", authenticateToken, async (req: any, res) => {
+    try {
+      const notifications = await storage.getNotifications(req.user.id);
+      // Sanitize passwords from actors
+      const sanitized = notifications.map((n) => ({
+        ...n,
+        actor: { ...n.actor, password: undefined },
+      }));
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get(
+    "/api/notifications/unread-count",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const count = await storage.getUnreadNotificationCount(req.user.id);
+        res.json({ count });
+      } catch (error) {
+        console.error("Get unread count error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  app.patch(
+    "/api/notifications/:id/read",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        await storage.markNotificationAsRead(req.params.id);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Mark notification as read error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  app.post(
+    "/api/notifications/mark-all-read",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        await storage.markAllNotificationsAsRead(req.user.id);
+        res.json({ success: true });
+      } catch (error) {
+        console.error("Mark all notifications as read error:", error);
         res.status(500).json({ message: "Internal server error" });
       }
     }

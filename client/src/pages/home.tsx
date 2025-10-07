@@ -342,9 +342,21 @@ export default function Home() {
                                 "POST",
                                 `/api/users/${person.id}/follow`
                               );
+                              // Invalidate suggestions
                               queryClient.invalidateQueries({
                                 queryKey: ["/api/suggestions"],
                               });
+                              // Invalidate current user's profile data to update following count
+                              if (user?.id) {
+                                queryClient.invalidateQueries({
+                                  queryKey: [`/api/users/${user.id}`],
+                                });
+                                queryClient.invalidateQueries({
+                                  queryKey: [
+                                    `/api/users/${user.id}/follow-counts`,
+                                  ],
+                                });
+                              }
                               toast({
                                 title: "Followed",
                                 description: `You are now following ${person.name}`,

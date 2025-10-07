@@ -171,33 +171,31 @@ export function PostCard({ post }: PostCardProps) {
                 ago
               </p>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="p-2"
-                  data-testid={`post-menu-${post.id}`}
-                >
-                  <MoreHorizontal className="w-5 h-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {user?.id === post.author.id && (
-                  <>
-                    <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => deleteMutation.mutate()}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      Delete
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {user?.id === post.author.id && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="p-2"
+                    data-testid={`post-menu-${post.id}`}
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => deleteMutation.mutate()}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
           <p
             className="mt-3 text-foreground leading-relaxed"

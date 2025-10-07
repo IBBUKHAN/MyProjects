@@ -86,6 +86,24 @@ export const follows = pgTable(
   })
 );
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id")
+    .references(() => users.id)
+    .notNull(), // who receives the notification
+  actorId: varchar("actor_id")
+    .references(() => users.id)
+    .notNull(), // who performed the action
+  type: text("type").notNull(), // 'like', 'comment', 'follow'
+  postId: varchar("post_id").references(() => posts.id), // for likes/comments
+  commentId: varchar("comment_id").references(() => postComments.id), // for comments
+  isRead: boolean("is_read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const usersRelations = relations(users, ({ many }) => ({
   posts: many(posts),
   likes: many(postLikes),
@@ -181,6 +199,7 @@ export type Post = typeof posts.$inferSelect;
 export type PostLike = typeof postLikes.$inferSelect;
 export type PostComment = typeof postComments.$inferSelect;
 export type Follow = typeof follows.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
 
@@ -189,4 +208,9 @@ export interface PostWithAuthor extends Post {
   likes: PostLike[];
   comments: PostComment[];
   isLiked?: boolean;
+}
+
+export interface NotificationWithActor extends Notification {
+  actor: User;
+  post?: Post;
 }

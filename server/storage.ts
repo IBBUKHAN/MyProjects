@@ -4,6 +4,7 @@ import {
   postLikes,
   postComments,
   follows,
+  notifications,
   type User,
   type InsertUser,
   type Post,
@@ -14,6 +15,8 @@ import {
   type InsertPostComment,
   type PostWithAuthor,
   type Follow,
+  type Notification,
+  type NotificationWithActor,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql, inArray } from "drizzle-orm";
@@ -70,6 +73,19 @@ export interface IStorage {
     currentUserId: string,
     limit?: number
   ): Promise<Array<User & { followers: number }>>;
+
+  // Notification methods
+  createNotification(data: {
+    userId: string;
+    actorId: string;
+    type: string;
+    postId?: string;
+    commentId?: string;
+  }): Promise<Notification>;
+  getNotifications(userId: string): Promise<NotificationWithActor[]>;
+  markNotificationAsRead(notificationId: string): Promise<void>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -461,6 +477,95 @@ export class DatabaseStorage implements IStorage {
       .map((u) => ({ ...u, followers: followerCountByUser.get(u.id) || 0 }))
       .sort((a, b) => b.followers - a.followers)
       .slice(0, limit);
+  }
+
+  // Notification methods
+  async createNotification(data: {
+    userId: string;
+    actorId: string;
+    type: string;
+    postId?: string;
+    commentId?: string;
+  }): Promise<Notification> {
+    // Don't create notification if actor is the same as user
+    if (data.userId === data.actorId) {
+      throw new Error("Cannot create notification for self");
+    }
+
+    const [notification] = await db
+      .insert(notifications)
+      .values(data)
+      .returning();
+    return notification;
+  }
+
+  async getNotifications(userId: string): Promise<NotificationWithActor[]> {
+    const notifs = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(50);
+
+    // Get all unique actor IDs
+    const actorIdsSet = new Set<string>();
+    notifs.forEach((n) => actorIdsSet.add(n.actorId));
+    const actorIds = Array.from(actorIdsSet);
+
+    // Get all actors
+    const actors = await db
+      .select()
+      .from(users)
+      .where(inArray(users.id, actorIds));
+
+    const actorMap = new Map(actors.map((a) => [a.id, a]));
+
+    // Get all unique post IDs for like/comment notifications
+    const postIdsSet = new Set<string>();
+    notifs.forEach((n) => {
+      if (n.postId) postIdsSet.add(n.postId);
+    });
+    const postIds = Array.from(postIdsSet);
+
+    // Get all posts
+    const postList =
+      postIds.length > 0
+        ? await db.select().from(posts).where(inArray(posts.id, postIds))
+        : [];
+
+    const postMap = new Map(postList.map((p) => [p.id, p]));
+
+    // Combine notifications with actors and posts
+    return notifs.map((n) => ({
+      ...n,
+      actor: actorMap.get(n.actorId)!,
+      post: n.postId ? postMap.get(n.postId) : undefined,
+    }));
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, notificationId));
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.userId, userId));
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`cast(count(*) as int)` })
+      .from(notifications)
+      .where(
+        and(eq(notifications.userId, userId), eq(notifications.isRead, false))
+      );
+
+    return result[0]?.count || 0;
   }
 }
 
