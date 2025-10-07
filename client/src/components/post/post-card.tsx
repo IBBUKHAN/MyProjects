@@ -111,6 +111,7 @@ export function PostCard({ post }: PostCardProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trending"] });
       toast({ title: "Post deleted" });
     },
     onError: () => {
@@ -239,6 +240,9 @@ export function PostCard({ post }: PostCardProps) {
                     );
                     setIsEditOpen(false);
                     queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+                    queryClient.invalidateQueries({
+                      queryKey: ["/api/trending"],
+                    });
                     toast({ title: "Post updated" });
                   } catch {
                     toast({

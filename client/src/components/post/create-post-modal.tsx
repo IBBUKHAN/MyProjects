@@ -49,6 +49,7 @@ export function CreatePostModal({
         description: "Post created successfully!",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/trending"] });
       setContent("");
       setImageUrl(undefined);
       onClose();
