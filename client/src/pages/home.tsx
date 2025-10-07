@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import { PostCard } from "@/components/post/post-card";
 import { CreatePostModal } from "@/components/post/create-post-modal";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
 import type { PostWithAuthor } from "@shared/schema";
 import { useLocation } from "wouter";
 
@@ -20,15 +21,43 @@ export default function Home() {
     "image" | "text" | undefined
   >(undefined);
   const [, navigate] = useLocation();
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const {
     data: posts,
     isLoading,
     error,
   } = useQuery<PostWithAuthor[]>({
-    queryKey: ["/api/posts"],
+    queryKey: ["/api/posts", selectedTag],
     queryFn: async () => {
-      const response = await authenticatedApiRequest("GET", "/api/posts");
+      const url = selectedTag
+        ? `/api/posts?tag=${encodeURIComponent(selectedTag.replace(/^#/, ""))}`
+        : "/api/posts";
+      const response = await authenticatedApiRequest("GET", url);
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const { data: trendingTopics } = useQuery<
+    Array<{ tag: string; count: number }>
+  >({
+    queryKey: ["/api/trending"],
+    queryFn: async () => {
+      const response = await authenticatedApiRequest("GET", "/api/trending");
+      return response.json();
+    },
+    enabled: !!user,
+  });
+
+  const { data: suggestions } = useQuery<
+    Array<{ id: string; name: string; profilePictureUrl: string | null }>
+  >({
+    queryKey: ["/api/suggestions"],
+    queryFn: async () => {
+      const response = await authenticatedApiRequest("GET", "/api/suggestions");
       return response.json();
     },
     enabled: !!user,
@@ -248,20 +277,19 @@ export default function Home() {
                 <div className="glass-effect rounded-2xl p-6">
                   <h3 className="font-semibold mb-4">Trending Topics</h3>
                   <div className="space-y-4">
-                    {[
-                      { tag: "#DesignSystems", count: "2.3k posts" },
-                      { tag: "#WebDevelopment", count: "5.8k posts" },
-                      { tag: "#RemoteWork", count: "4.1k posts" },
-                      { tag: "#TechCareers", count: "3.2k posts" },
-                    ].map((trend, i) => (
+                    {(trendingTopics || []).map((trend, i) => (
                       <div
                         key={i}
                         className="cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
                         data-testid={`trending-topic-${i}`}
+                        onClick={() => {
+                          setSelectedTag(trend.tag);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
                       >
                         <p className="text-sm font-medium">{trend.tag}</p>
                         <p className="text-xs text-muted-foreground">
-                          {trend.count}
+                          {trend.count} posts
                         </p>
                       </div>
                     ))}
@@ -272,33 +300,35 @@ export default function Home() {
                 <div className="glass-effect rounded-2xl p-6">
                   <h3 className="font-semibold mb-4">Who to Follow</h3>
                   <div className="space-y-4">
-                    {[
-                      {
-                        name: "David Park",
-                        role: "Frontend Dev",
-                        avatar: "DP",
-                      },
-                      {
-                        name: "Lisa Anderson",
-                        role: "UI/UX Designer",
-                        avatar: "LA",
-                      },
-                      { name: "James Wilson", role: "Tech Lead", avatar: "JW" },
-                    ].map((person, i) => (
+                    {(suggestions || []).map((person, i) => (
                       <div
                         key={i}
                         className="flex items-center gap-3"
                         data-testid={`suggestion-${i}`}
                       >
                         <Avatar className="w-10 h-10">
-                          <AvatarFallback>{person.avatar}</AvatarFallback>
+                          {person.profilePictureUrl ? (
+                            <AvatarImage
+                              src={person.profilePictureUrl}
+                              alt={person.name}
+                            />
+                          ) : (
+                            <AvatarFallback>
+                              {person.name
+                                .split(" ")
+                                .map((s) => s[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </AvatarFallback>
+                          )}
                         </Avatar>
-                        <div className="flex-1 min-w-0">
+                        <div
+                          className="flex-1 min-w-0 cursor-pointer"
+                          onClick={() => navigate(`/users/${person.id}`)}
+                        >
                           <p className="text-sm font-medium truncate">
                             {person.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {person.role}
                           </p>
                         </div>
                         <Button
@@ -306,6 +336,23 @@ export default function Home() {
                           variant="outline"
                           className="text-xs"
                           data-testid={`button-follow-${i}`}
+                          onClick={async () => {
+                            try {
+                              await authenticatedApiRequest(
+                                "POST",
+                                `/api/users/${person.id}/follow`
+                              );
+                              queryClient.invalidateQueries({
+                                queryKey: ["/api/suggestions"],
+                              });
+                              toast({
+                                title: "Followed",
+                                description: `You are now following ${person.name}`,
+                              });
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }}
                         >
                           Follow
                         </Button>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { PostCard } from "@/components/post/post-card";
@@ -28,15 +29,19 @@ import {
 } from "@/components/ui/form";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
-import type { PostWithAuthor } from "@shared/schema";
+import type { PostWithAuthor, User } from "@shared/schema";
 
 export default function Profile() {
   const { user } = useAuthStore();
+  const [, navigate] = useLocation();
   const [activeTab, setActiveTab] = useState<"posts" | "about" | "media">(
     "posts"
   );
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
+  const [followModal, setFollowModal] = useState<
+    "followers" | "following" | null
+  >(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [drag, setDrag] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -88,6 +93,32 @@ export default function Profile() {
       const u = await res.json();
       return { followers: u.followers ?? 0, following: u.following ?? 0 };
     },
+  });
+
+  const { data: followers } = useQuery<Omit<User, "password">[]>({
+    queryKey: ["/api/users", user?.id, "followers"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await authenticatedApiRequest(
+        "GET",
+        `/api/users/${user.id}/followers`
+      );
+      return res.json();
+    },
+    enabled: !!user && followModal === "followers",
+  });
+
+  const { data: following } = useQuery<Omit<User, "password">[]>({
+    queryKey: ["/api/users", user?.id, "following"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await authenticatedApiRequest(
+        "GET",
+        `/api/users/${user.id}/following`
+      );
+      return res.json();
+    },
+    enabled: !!user && followModal === "following",
   });
 
   const connections =
@@ -215,19 +246,23 @@ export default function Profile() {
               </div>
 
               {/* Bio */}
-              <div className="mb-6">
-                <p
-                  className="text-foreground leading-relaxed"
-                  data-testid="profile-bio"
-                >
-                  {user.bio ||
-                    "Passionate about creating amazing experiences and connecting with professionals worldwide. Building the future one project at a time."}
-                </p>
-              </div>
+              {user.bio && (
+                <div className="mb-6">
+                  <p
+                    className="text-foreground leading-relaxed"
+                    data-testid="profile-bio"
+                  >
+                    {user.bio}
+                  </p>
+                </div>
+              )}
 
               {/* Stats */}
               <div className="grid grid-cols-3 gap-6 pt-6 border-t border-border">
-                <div className="text-center">
+                <div
+                  className="text-center cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
+                  onClick={() => setFollowModal("followers")}
+                >
                   <p
                     className="text-2xl font-bold"
                     data-testid="profile-followers"
@@ -236,7 +271,10 @@ export default function Profile() {
                   </p>
                   <p className="text-sm text-muted-foreground">Followers</p>
                 </div>
-                <div className="text-center">
+                <div
+                  className="text-center cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
+                  onClick={() => setFollowModal("following")}
+                >
                   <p
                     className="text-2xl font-bold"
                     data-testid="profile-following"
@@ -666,6 +704,115 @@ export default function Profile() {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Followers/Following Modal */}
+      <Dialog open={!!followModal} onOpenChange={() => setFollowModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {followModal === "followers" ? "Followers" : "Following"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            {followModal === "followers" && (
+              <div className="space-y-3">
+                {!followers || followers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No followers yet.
+                  </p>
+                ) : (
+                  followers.map((follower) => (
+                    <div
+                      key={follower.id}
+                      className="flex items-center gap-3 p-2 hover:bg-accent/10 rounded-lg cursor-pointer"
+                      onClick={() => {
+                        setFollowModal(null);
+                        navigate(`/users/${follower.id}`);
+                      }}
+                    >
+                      <Avatar className="w-10 h-10">
+                        {follower.profilePictureUrl ? (
+                          <AvatarImage
+                            src={follower.profilePictureUrl}
+                            alt={follower.name}
+                          />
+                        ) : (
+                          <AvatarFallback>
+                            {follower.name
+                              .split(" ")
+                              .map((s) => s[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {follower.name}
+                        </p>
+                        {follower.bio && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {follower.bio}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {followModal === "following" && (
+              <div className="space-y-3">
+                {!following || following.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Not following anyone yet.
+                  </p>
+                ) : (
+                  following.map((followingUser) => (
+                    <div
+                      key={followingUser.id}
+                      className="flex items-center gap-3 p-2 hover:bg-accent/10 rounded-lg cursor-pointer"
+                      onClick={() => {
+                        setFollowModal(null);
+                        navigate(`/users/${followingUser.id}`);
+                      }}
+                    >
+                      <Avatar className="w-10 h-10">
+                        {followingUser.profilePictureUrl ? (
+                          <AvatarImage
+                            src={followingUser.profilePictureUrl}
+                            alt={followingUser.name}
+                          />
+                        ) : (
+                          <AvatarFallback>
+                            {followingUser.name
+                              .split(" ")
+                              .map((s) => s[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {followingUser.name}
+                        </p>
+                        {followingUser.bio && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {followingUser.bio}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>

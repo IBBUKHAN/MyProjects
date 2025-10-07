@@ -215,9 +215,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/posts", authenticateToken, async (req: any, res) => {
     try {
       const posts = await storage.getPosts(req.user.id);
-      res.json(posts);
+      const tag = (req.query.tag as string | undefined)
+        ?.toLowerCase()
+        ?.replace(/^#/, "");
+      if (tag) {
+        const tagWithHash = `#${tag}`;
+        const filtered = posts.filter(
+          (p) =>
+            typeof p.content === "string" &&
+            p.content.toLowerCase().includes(tagWithHash)
+        );
+        return res.json(filtered);
+      }
+      return res.json(posts);
     } catch (error) {
       console.error("Get posts error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Discovery routes
+  app.get("/api/trending", authenticateToken, async (_req: any, res) => {
+    try {
+      const topics = await storage.getTrendingTopics(5);
+      res.json(topics);
+    } catch (error) {
+      console.error("Get trending error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/suggestions", authenticateToken, async (req: any, res) => {
+    try {
+      const suggestions = await storage.getUserSuggestions(req.user.id, 5);
+      // hide passwords from payload
+      const sanitized = suggestions.map(({ password, ...u }) => u);
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Get suggestions error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -490,6 +525,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ followers: counts.followers });
       } catch (error) {
         console.error("Unfollow user error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  app.get(
+    "/api/users/:id/followers",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const followers = await storage.getFollowers(req.params.id);
+        const sanitized = followers.map(({ password, ...u }) => u);
+        res.json(sanitized);
+      } catch (error) {
+        console.error("Get followers error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  app.get(
+    "/api/users/:id/following",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const following = await storage.getFollowing(req.params.id);
+        const sanitized = following.map(({ password, ...u }) => u);
+        res.json(sanitized);
+      } catch (error) {
+        console.error("Get following error:", error);
         res.status(500).json({ message: "Internal server error" });
       }
     }

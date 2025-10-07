@@ -16,7 +16,7 @@ import {
   type Follow,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -59,6 +59,16 @@ export interface IStorage {
     userId: string
   ): Promise<{ followers: number; following: number }>;
   isFollowing(followerId: string, followingId: string): Promise<boolean>;
+  getFollowers(userId: string): Promise<User[]>;
+  getFollowing(userId: string): Promise<User[]>;
+  // Discoverability
+  getTrendingTopics(
+    limit?: number
+  ): Promise<Array<{ tag: string; count: number }>>;
+  getUserSuggestions(
+    currentUserId: string,
+    limit?: number
+  ): Promise<Array<User & { followers: number }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -346,6 +356,93 @@ export class DatabaseStorage implements IStorage {
         )
       );
     return !!row;
+  }
+
+  async getFollowers(userId: string): Promise<User[]> {
+    const followRows = await db
+      .select()
+      .from(follows)
+      .where(eq(follows.followingId, userId));
+
+    const followerIds = followRows.map((f) => f.followerId);
+    if (followerIds.length === 0) return [];
+
+    const followers = await db
+      .select()
+      .from(users)
+      .where(inArray(users.id, followerIds));
+
+    return followers;
+  }
+
+  async getFollowing(userId: string): Promise<User[]> {
+    const followRows = await db
+      .select()
+      .from(follows)
+      .where(eq(follows.followerId, userId));
+
+    const followingIds = followRows.map((f) => f.followingId);
+    if (followingIds.length === 0) return [];
+
+    const following = await db
+      .select()
+      .from(users)
+      .where(inArray(users.id, followingIds));
+
+    return following;
+  }
+
+  // Discoverability helpers
+  async getTrendingTopics(
+    limit = 5
+  ): Promise<Array<{ tag: string; count: number }>> {
+    const postsData = await db
+      .select()
+      .from(posts)
+      .orderBy(desc(posts.createdAt));
+
+    const hashtagCounts = new Map<string, number>();
+    const hashtagRegex = /#[A-Za-z0-9_]+/g;
+    for (const post of postsData) {
+      if (!post.content) continue;
+      const matches = post.content.match(hashtagRegex) || [];
+      for (const raw of matches) {
+        const tag = raw.toLowerCase();
+        hashtagCounts.set(tag, (hashtagCounts.get(tag) || 0) + 1);
+      }
+    }
+
+    return Array.from(hashtagCounts.entries())
+      .map(([tag, count]) => ({ tag, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit);
+  }
+
+  async getUserSuggestions(
+    currentUserId: string,
+    limit = 5
+  ): Promise<Array<User & { followers: number }>> {
+    const followingRows = await db
+      .select()
+      .from(follows)
+      .where(eq(follows.followerId, currentUserId));
+    const followingSet = new Set(followingRows.map((r) => r.followingId));
+
+    const allFollows = await db.select().from(follows);
+    const followerCountByUser = new Map<string, number>();
+    for (const f of allFollows) {
+      followerCountByUser.set(
+        f.followingId,
+        (followerCountByUser.get(f.followingId) || 0) + 1
+      );
+    }
+
+    const allUsers = await db.select().from(users);
+    return allUsers
+      .filter((u) => u.id !== currentUserId && !followingSet.has(u.id))
+      .map((u) => ({ ...u, followers: followerCountByUser.get(u.id) || 0 }))
+      .sort((a, b) => b.followers - a.followers)
+      .slice(0, limit);
   }
 }
 

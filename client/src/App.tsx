@@ -13,6 +13,7 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Home from "@/pages/home";
 import Profile from "@/pages/profile";
+import UserProfile from "@/pages/user-profile";
 import ArticleCompose from "@/pages/article-compose";
 import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -89,6 +90,12 @@ function Router() {
       <Route path="/profile">
         <ProtectedRoute>
           <Profile />
+        </ProtectedRoute>
+      </Route>
+
+      <Route path="/users/:id">
+        <ProtectedRoute>
+          <UserProfile />
         </ProtectedRoute>
       </Route>
 
