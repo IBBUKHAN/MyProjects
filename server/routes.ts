@@ -4,7 +4,12 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import multer from "multer";
 import { storage } from "./storage";
-import { loginSchema, registerSchema, insertPostSchema, insertPostCommentSchema } from "@shared/schema";
+import {
+  loginSchema,
+  registerSchema,
+  insertPostSchema,
+  insertPostCommentSchema,
+} from "@shared/schema";
 import { z } from "zod";
 
 // JWT configuration
@@ -21,23 +26,23 @@ const upload = multer({
 
 // JWT middleware
 const authenticateToken = async (req: any, res: any, next: any) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Access token required' });
+    return res.status(401).json({ message: "Access token required" });
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
     const user = await storage.getUser(decoded.userId);
     if (!user) {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ message: "Invalid token" });
     }
     req.user = user;
     next();
   } catch (error) {
-    return res.status(403).json({ message: 'Invalid token' });
+    return res.status(403).json({ message: "Invalid token" });
   }
 };
 
@@ -46,7 +51,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/register", async (req, res) => {
     try {
       const validatedData = registerSchema.parse(req.body);
-      
+
       // Check if user already exists
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
@@ -55,27 +60,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Hash password
       const hashedPassword = await bcrypt.hash(validatedData.password, 10);
-      
+
       const user = await storage.createUser({
         ...validatedData,
         password: hashedPassword,
       });
 
       // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN,
+      });
 
       // Remove password from response
       const { password, ...userWithoutPassword } = user;
-      
-      res.json({ 
-        user: userWithoutPassword, 
-        token 
+
+      res.json({
+        user: userWithoutPassword,
+        token,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error('Registration error:', error);
+      console.error("Registration error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -83,32 +90,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const validatedData = loginSchema.parse(req.body);
-      
+
       const user = await storage.getUserByEmail(validatedData.email);
       if (!user) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
-      const isValidPassword = await bcrypt.compare(validatedData.password, user.password);
+      const isValidPassword = await bcrypt.compare(
+        validatedData.password,
+        user.password
+      );
       if (!isValidPassword) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN,
+      });
 
       // Remove password from response
       const { password, ...userWithoutPassword } = user;
-      
-      res.json({ 
-        user: userWithoutPassword, 
-        token 
+
+      res.json({
+        user: userWithoutPassword,
+        token,
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error('Login error:', error);
+      console.error("Login error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -125,11 +137,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       const { password, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
-      console.error('Get user error:', error);
+      console.error("Get user error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -140,24 +152,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Forbidden" });
       }
 
-      const updateData = z.object({
-        name: z.string().optional(),
-        bio: z.string().optional(),
-        profilePictureUrl: z.string().optional(),
-      }).parse(req.body);
+      const updateData = z
+        .object({
+          name: z.string().optional(),
+          bio: z.string().optional(),
+          profilePictureUrl: z.string().optional(),
+        })
+        .parse(req.body);
 
       const user = await storage.updateUser(req.params.id, updateData);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       const { password, ...userWithoutPassword } = user;
       res.json(userWithoutPassword);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error('Update user error:', error);
+      console.error("Update user error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -168,7 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const posts = await storage.getPosts(req.user.id);
       res.json(posts);
     } catch (error) {
-      console.error('Get posts error:', error);
+      console.error("Get posts error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -179,16 +193,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         userId: req.user.id,
       });
-      
+
       const post = await storage.createPost(validatedData);
-      const postWithAuthor = await storage.getPostWithAuthor(post.id, req.user.id);
-      
+      const postWithAuthor = await storage.getPostWithAuthor(
+        post.id,
+        req.user.id
+      );
+
       res.json(postWithAuthor);
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
-      console.error('Create post error:', error);
+      console.error("Create post error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -199,10 +216,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      
+
       res.json(post);
     } catch (error) {
-      console.error('Get post error:', error);
+      console.error("Get post error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -213,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
       }
-      
+
       if (post.userId !== req.user.id) {
         return res.status(403).json({ message: "Forbidden" });
       }
@@ -221,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deletePost(req.params.id);
       res.json({ message: "Post deleted successfully" });
     } catch (error) {
-      console.error('Delete post error:', error);
+      console.error("Delete post error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
@@ -231,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const postId = req.params.id;
       const userId = req.user.id;
-      
+
       const existingLike = await storage.getPostLike(postId, userId);
       if (existingLike) {
         await storage.deletePostLike(postId, userId);
@@ -241,77 +258,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ liked: true });
       }
     } catch (error) {
-      console.error('Toggle like error:', error);
+      console.error("Toggle like error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });
 
   // Comment routes
-  app.post("/api/posts/:id/comments", authenticateToken, async (req: any, res) => {
-    try {
-      const validatedData = insertPostCommentSchema.parse({
-        ...req.body,
-        postId: req.params.id,
-        userId: req.user.id,
-      });
-      
-      const comment = await storage.createPostComment(validatedData);
-      const commentWithUser = await storage.getCommentWithUser(comment.id);
-      
-      res.json(commentWithUser);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: error.errors[0].message });
-      }
-      console.error('Create comment error:', error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
+  app.post(
+    "/api/posts/:id/comments",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const validatedData = insertPostCommentSchema.parse({
+          ...req.body,
+          postId: req.params.id,
+          userId: req.user.id,
+        });
 
-  app.get("/api/posts/:id/comments", authenticateToken, async (req: any, res) => {
-    try {
-      const comments = await storage.getPostComments(req.params.id);
-      res.json(comments);
-    } catch (error) {
-      console.error('Get comments error:', error);
-      res.status(500).json({ message: "Internal server error" });
+        const comment = await storage.createPostComment(validatedData);
+        const commentWithUser = await storage.getCommentWithUser(comment.id);
+
+        res.json(commentWithUser);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ message: error.errors[0].message });
+        }
+        console.error("Create comment error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
-  });
+  );
+
+  app.get(
+    "/api/posts/:id/comments",
+    authenticateToken,
+    async (req: any, res) => {
+      try {
+        const comments = await storage.getPostComments(req.params.id);
+        res.json(comments);
+      } catch (error) {
+        console.error("Get comments error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
 
   // File upload routes (for S3 integration)
-  app.post("/api/upload/profile-picture", authenticateToken, upload.single('image'), async (req: any, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file provided" });
+  app.post(
+    "/api/upload/profile-picture",
+    authenticateToken,
+    upload.single("image"),
+    async (req: any, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file provided" });
+        }
+
+        // TODO: Implement S3 upload
+        // For now, return a placeholder URL
+        const imageUrl = `https://via.placeholder.com/150?text=${req.user.name}`;
+
+        res.json({ url: imageUrl });
+      } catch (error) {
+        console.error("Upload profile picture error:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-
-      // TODO: Implement S3 upload
-      // For now, return a placeholder URL
-      const imageUrl = `https://via.placeholder.com/150?text=${req.user.name}`;
-      
-      res.json({ url: imageUrl });
-    } catch (error) {
-      console.error('Upload profile picture error:', error);
-      res.status(500).json({ message: "Internal server error" });
     }
-  });
+  );
 
-  app.post("/api/upload/post-image", authenticateToken, upload.single('image'), async (req: any, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: "No file provided" });
+  app.post(
+    "/api/upload/post-image",
+    authenticateToken,
+    upload.single("image"),
+    async (req: any, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file provided" });
+        }
+
+        // TODO: Implement S3 upload
+        // For now, return a placeholder URL
+        const imageUrl = `https://via.placeholder.com/600x400?text=Post+Image`;
+
+        res.json({ url: imageUrl });
+      } catch (error) {
+        console.error("Upload post image error:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
-
-      // TODO: Implement S3 upload
-      // For now, return a placeholder URL
-      const imageUrl = `https://via.placeholder.com/600x400?text=Post+Image`;
-      
-      res.json({ url: imageUrl });
-    } catch (error) {
-      console.error('Upload post image error:', error);
-      res.status(500).json({ message: "Internal server error" });
     }
-  });
+  );
 
   // User posts route
   app.get("/api/users/:id/posts", authenticateToken, async (req: any, res) => {
@@ -319,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const posts = await storage.getUserPosts(req.params.id, req.user.id);
       res.json(posts);
     } catch (error) {
-      console.error('Get user posts error:', error);
+      console.error("Get user posts error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

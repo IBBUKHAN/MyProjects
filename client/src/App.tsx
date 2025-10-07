@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect } from "react";
 import { Switch, Route, Redirect } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -18,7 +18,7 @@ function AuthCheck({ children }: { children: React.ReactNode }) {
   const { user, setUser, isAuthenticated } = useAuthStore();
 
   const { data: currentUser } = useQuery({
-    queryKey: ['/api/auth/me'],
+    queryKey: ["/api/auth/me"],
     queryFn: authApi.getCurrentUser,
     retry: false,
     refetchOnWindowFocus: false,
@@ -37,21 +37,21 @@ function AuthCheck({ children }: { children: React.ReactNode }) {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
-  
+
   if (!isAuthenticated) {
     return <Redirect to="/login" />;
   }
-  
+
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
-  
+
   if (isAuthenticated) {
     return <Redirect to="/" />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -63,25 +63,25 @@ function Router() {
           <Login />
         </PublicRoute>
       </Route>
-      
+
       <Route path="/register">
         <PublicRoute>
           <Register />
         </PublicRoute>
       </Route>
-      
+
       <Route path="/">
         <ProtectedRoute>
           <Home />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/profile">
         <ProtectedRoute>
           <Profile />
         </ProtectedRoute>
       </Route>
-      
+
       <Route path="/notifications">
         <ProtectedRoute>
           <div className="min-h-screen bg-background pt-20 pb-24 md:pb-8">
@@ -94,7 +94,7 @@ function Router() {
           </div>
         </ProtectedRoute>
       </Route>
-      
+
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
