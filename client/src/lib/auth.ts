@@ -27,7 +27,26 @@ export const authApi = {
     return result;
   },
 
-  logout: () => {
+  logout: async () => {
+    const token = authApi.getToken();
+
+    // Call backend logout endpoint if token exists
+    if (token) {
+      try {
+        await fetch("/api/auth/logout", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+        });
+      } catch (error) {
+        console.error("Backend logout failed:", error);
+        // Continue with local logout even if backend fails
+      }
+    }
+
+    // Always clear local storage
     localStorage.removeItem("auth_token");
   },
 

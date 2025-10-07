@@ -1,17 +1,24 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation } from '@tanstack/react-query';
-import { UserPlus, Eye, EyeOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { authApi } from '@/lib/auth';
-import { useAuthStore } from '@/lib/store';
-import { useToast } from '@/hooks/use-toast';
-import { registerSchema, type RegisterData } from '@shared/schema';
+import { useState } from "react";
+import { Link, useLocation } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation } from "@tanstack/react-query";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { authApi } from "@/lib/auth";
+import { useAuthStore } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
+import { registerSchema, type RegisterData } from "@shared/schema";
 
 export default function Register() {
   const [, navigate] = useLocation();
@@ -21,17 +28,21 @@ export default function Register() {
   const { toast } = useToast();
 
   const form = useForm<RegisterData & { confirmPassword: string }>({
-    resolver: zodResolver(registerSchema.extend({
-      confirmPassword: registerSchema.shape.password,
-    }).refine((data) => data.password === data.confirmPassword, {
-      message: "Passwords don't match",
-      path: ["confirmPassword"],
-    })),
+    resolver: zodResolver(
+      registerSchema
+        .extend({
+          confirmPassword: registerSchema.shape.password,
+        })
+        .refine((data) => data.password === data.confirmPassword, {
+          message: "Passwords don't match",
+          path: ["confirmPassword"],
+        })
+    ),
     defaultValues: {
-      name: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
     },
   });
 
@@ -40,10 +51,11 @@ export default function Register() {
     onSuccess: (data) => {
       setUser(data.user);
       toast({
-        title: "Success",
-        description: "Account created successfully!",
+        title: "Welcome to EchoMateLite! 🎉",
+        description: "Your account has been created successfully.",
       });
-      navigate('/');
+      // Automatically log in and redirect to home
+      navigate("/");
     },
     onError: (error) => {
       toast({
@@ -59,7 +71,7 @@ export default function Register() {
     registerMutation.mutate(registerData);
   };
 
-  const password = form.watch('password');
+  const password = form.watch("password");
   const getPasswordStrength = (password: string) => {
     let strength = 0;
     if (password.length >= 8) strength++;
@@ -69,16 +81,24 @@ export default function Register() {
     return strength;
   };
 
-  const passwordStrength = getPasswordStrength(password || '');
-  const strengthColors = ['bg-destructive', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500'];
-  const strengthLabels = ['Weak', 'Fair', 'Good', 'Strong'];
+  const passwordStrength = getPasswordStrength(password || "");
+  const strengthColors = [
+    "bg-destructive",
+    "bg-orange-500",
+    "bg-yellow-500",
+    "bg-green-500",
+  ];
+  const strengthLabels = ["Weak", "Fair", "Good", "Strong"];
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-20">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-primary mx-auto mb-4 flex items-center justify-center">
-            <UserPlus className="w-10 h-10 text-primary-foreground" strokeWidth={2} />
+            <UserPlus
+              className="w-10 h-10 text-primary-foreground"
+              strokeWidth={2}
+            />
           </div>
           <h1 className="text-3xl font-bold mb-2">Create your account</h1>
           <p className="text-muted-foreground">Join the community today</p>
@@ -94,11 +114,11 @@ export default function Register() {
                   <FormItem>
                     <FormLabel>Full name</FormLabel>
                     <FormControl>
-                      <Input 
-                        placeholder="John Doe" 
+                      <Input
+                        placeholder="John Doe"
                         className="px-4 py-3"
                         data-testid="input-name"
-                        {...field} 
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -113,12 +133,12 @@ export default function Register() {
                   <FormItem>
                     <FormLabel>Email address</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="you@example.com" 
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
                         className="px-4 py-3"
                         data-testid="input-email"
-                        {...field} 
+                        {...field}
                       />
                     </FormControl>
                     <FormMessage />
@@ -134,12 +154,12 @@ export default function Register() {
                     <FormLabel>Password</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input 
+                        <Input
                           type={showPassword ? "text" : "password"}
-                          placeholder="••••••••" 
+                          placeholder="••••••••"
                           className="px-4 py-3 pr-12"
                           data-testid="input-password"
-                          {...field} 
+                          {...field}
                         />
                         <Button
                           type="button"
@@ -157,7 +177,7 @@ export default function Register() {
                         </Button>
                       </div>
                     </FormControl>
-                    
+
                     {/* Password Strength Meter */}
                     {password && (
                       <div className="mt-3 space-y-2">
@@ -166,19 +186,21 @@ export default function Register() {
                             <div
                               key={level}
                               className={`strength-meter flex-1 ${
-                                level <= passwordStrength 
-                                  ? strengthColors[passwordStrength - 1] 
-                                  : 'bg-muted/30'
+                                level <= passwordStrength
+                                  ? strengthColors[passwordStrength - 1]
+                                  : "bg-muted/30"
                               }`}
                             />
                           ))}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {passwordStrength > 0 ? `${strengthLabels[passwordStrength - 1]} password` : 'Enter a password'}
+                          {passwordStrength > 0
+                            ? `${strengthLabels[passwordStrength - 1]} password`
+                            : "Enter a password"}
                         </p>
                       </div>
                     )}
-                    
+
                     <FormMessage />
                   </FormItem>
                 )}
@@ -192,19 +214,21 @@ export default function Register() {
                     <FormLabel>Confirm password</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input 
+                        <Input
                           type={showConfirmPassword ? "text" : "password"}
-                          placeholder="••••••••" 
+                          placeholder="••••••••"
                           className="px-4 py-3 pr-12"
                           data-testid="input-confirm-password"
-                          {...field} 
+                          {...field}
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
                           data-testid="button-toggle-confirm-password"
                         >
                           {showConfirmPassword ? (
@@ -222,27 +246,48 @@ export default function Register() {
 
               <div className="flex items-start gap-2">
                 <Checkbox id="terms" required data-testid="checkbox-terms" />
-                <label htmlFor="terms" className="text-sm text-muted-foreground">
-                  I agree to the <Link href="/terms"><a className="text-primary hover:underline">Terms of Service</a></Link> and <Link href="/privacy"><a className="text-primary hover:underline">Privacy Policy</a></Link>
+                <label
+                  htmlFor="terms"
+                  className="text-sm text-muted-foreground"
+                >
+                  I agree to the{" "}
+                  <Link href="/terms">
+                    <a className="text-primary hover:underline">
+                      Terms of Service
+                    </a>
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy">
+                    <a className="text-primary hover:underline">
+                      Privacy Policy
+                    </a>
+                  </Link>
                 </label>
               </div>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full py-3"
                 disabled={registerMutation.isPending}
                 data-testid="button-submit"
               >
-                {registerMutation.isPending ? 'Creating account...' : 'Create account'}
+                {registerMutation.isPending
+                  ? "Creating account..."
+                  : "Create account"}
               </Button>
             </form>
           </Form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
-              Already have an account? {' '}
+              Already have an account?{" "}
               <Link href="/login">
-                <a className="text-primary font-medium hover:underline" data-testid="link-login">Sign in</a>
+                <a
+                  className="text-primary font-medium hover:underline"
+                  data-testid="link-login"
+                >
+                  Sign in
+                </a>
               </Link>
             </p>
           </div>

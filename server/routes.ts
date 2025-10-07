@@ -151,6 +151,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ user: userWithoutPassword });
   });
 
+  app.post("/api/auth/logout", authenticateToken, async (req: any, res) => {
+    try {
+      // In a stateless JWT system, we just send success
+      // The client will remove the token from localStorage
+      res.json({ message: "Logged out successfully" });
+    } catch (error) {
+      console.error("Logout error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // User routes
   app.get("/api/users/:id", authenticateToken, async (req: any, res) => {
     try {
@@ -452,6 +463,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({ url: imageUrl, user: userWithoutPassword });
       } catch (error) {
         console.error("Upload profile picture error:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  );
+
+  app.post(
+    "/api/upload/cover-image",
+    authenticateToken,
+    upload.single("image"),
+    async (req: any, res) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ message: "No file provided" });
+        }
+        if (!s3 || !process.env.S3_BUCKET || !process.env.AWS_REGION) {
+          return res.status(500).json({ message: "S3 is not configured" });
+        }
+
+        const bucket = process.env.S3_BUCKET;
+        const key = `users/${req.user.id}/cover-${Date.now()}`;
+        const contentType = req.file.mimetype || "application/octet-stream";
+
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: req.file.buffer,
+            ContentType: contentType,
+          })
+        );
+
+        const imageUrl = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+        // persist on user profile
+        const updatedUser = await storage.updateUser(req.user.id, {
+          coverImageUrl: imageUrl,
+        });
+        if (!updatedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const { password, ...userWithoutPassword } = updatedUser;
+        res.json({ url: imageUrl, user: userWithoutPassword });
+      } catch (error) {
+        console.error("Upload cover image error:", error);
         res.status(500).json({ message: "Internal server error" });
       }
     }

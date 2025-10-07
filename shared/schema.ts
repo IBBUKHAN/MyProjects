@@ -20,6 +20,7 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   bio: text("bio"),
   profilePictureUrl: text("profile_picture_url"),
+  coverImageUrl: text("cover_image_url"),
   birthday: timestamp("birthday"),
   education: text("education"),
   country: text("country"),

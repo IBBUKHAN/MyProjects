@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/form";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
+import { Camera } from "lucide-react";
 import type { PostWithAuthor, User } from "@shared/schema";
 
 export default function Profile() {
@@ -39,10 +40,12 @@ export default function Profile() {
   );
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isPhotoOpen, setIsPhotoOpen] = useState(false);
+  const [isCoverOpen, setIsCoverOpen] = useState(false);
   const [followModal, setFollowModal] = useState<
     "followers" | "following" | null
   >(null);
   const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [coverPreviewSrc, setCoverPreviewSrc] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [drag, setDrag] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [startDrag, setStartDrag] = useState<{ x: number; y: number } | null>(
@@ -190,9 +193,26 @@ export default function Profile() {
           <div className="glass-effect rounded-2xl overflow-hidden mb-6">
             {/* Cover Image */}
             <div
-              className="h-48 bg-gradient-to-r from-primary via-accent to-primary"
+              className="relative h-48 group cursor-pointer"
               data-testid="profile-cover"
-            ></div>
+              onClick={() => setIsCoverOpen(true)}
+            >
+              {(user as any)?.coverImageUrl ? (
+                <img
+                  src={(user as any).coverImageUrl}
+                  alt="Cover"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-r from-primary via-accent to-primary" />
+              )}
+              {/* Edit Cover Button - shows on hover */}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="bg-background/90 rounded-full p-3">
+                  <Camera className="w-6 h-6" />
+                </div>
+              </div>
+            </div>
 
             {/* Profile Info */}
             <div className="px-6 pb-6">
@@ -217,14 +237,6 @@ export default function Profile() {
                   >
                     {user.name}
                   </h1>
-                  {user.bio && (
-                    <p
-                      className="text-muted-foreground"
-                      data-testid="profile-title"
-                    >
-                      {user.bio}
-                    </p>
-                  )}
                   {(user as any)?.city || (user as any)?.country ? (
                     <p
                       className="text-sm text-muted-foreground mt-1"
@@ -583,6 +595,100 @@ export default function Profile() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Cover photo modal */}
+      <Dialog
+        open={isCoverOpen}
+        onOpenChange={(v) => {
+          setIsCoverOpen(v);
+          if (!v) {
+            setCoverPreviewSrc(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Cover photo</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-6">
+            <div className="w-full">
+              <div className="relative w-full aspect-[3/1] rounded-lg overflow-hidden bg-black/60">
+                {coverPreviewSrc ? (
+                  <img
+                    src={coverPreviewSrc}
+                    alt="cover preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary via-accent to-primary" />
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
+                  input.onchange = () => {
+                    const file = input.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () =>
+                      setCoverPreviewSrc(reader.result as string);
+                    reader.readAsDataURL(file);
+                  };
+                  input.click();
+                }}
+                className="flex-1 bg-[#0a66c2] hover:bg-[#004182] text-white"
+              >
+                Upload cover
+              </Button>
+              {coverPreviewSrc && (
+                <Button
+                  className="flex-1 bg-[#0a66c2] hover:bg-[#004182] text-white"
+                  onClick={async () => {
+                    if (!user) return;
+
+                    // Convert base64 to blob
+                    const response = await fetch(coverPreviewSrc);
+                    const blob = await response.blob();
+
+                    // Upload to server
+                    const form = new FormData();
+                    form.append("image", blob, "cover.png");
+
+                    const res = await authenticatedApiRequest(
+                      "POST",
+                      "/api/upload/cover-image",
+                      form
+                    );
+                    const { user: updated } = await res.json();
+
+                    // Update user in store
+                    useAuthStore.getState().setUser(updated as any);
+
+                    setIsCoverOpen(false);
+                    setCoverPreviewSrc(null);
+                  }}
+                >
+                  Save
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCoverPreviewSrc(null);
+                  setIsCoverOpen(false);
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>
