@@ -20,6 +20,11 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   bio: text("bio"),
   profilePictureUrl: text("profile_picture_url"),
+  birthday: timestamp("birthday"),
+  education: text("education"),
+  country: text("country"),
+  city: text("city"),
+  contactNumber: text("contact_number"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

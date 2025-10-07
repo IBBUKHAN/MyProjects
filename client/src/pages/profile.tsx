@@ -6,6 +6,26 @@ import { PostCard } from "@/components/post/post-card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
 import type { PostWithAuthor } from "@shared/schema";
@@ -15,6 +35,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState<"posts" | "about" | "media">(
     "posts"
   );
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   const { data: userPosts, isLoading } = useQuery<PostWithAuthor[]>({
     queryKey: ["/api/users", user?.id, "posts"],
@@ -44,6 +65,63 @@ export default function Profile() {
       return { followers: u.followers ?? 0, following: u.following ?? 0 };
     },
   });
+
+  const connections =
+    (followCounts?.followers ?? 0) + (followCounts?.following ?? 0);
+
+  const editSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    bio: z.string().optional(),
+    birthday: z.string().optional(),
+    education: z.string().optional(),
+    country: z.string().optional(),
+    city: z.string().optional(),
+    contactNumber: z.string().optional(),
+  });
+
+  type EditData = z.infer<typeof editSchema>;
+
+  const form = useForm<EditData>({
+    resolver: zodResolver(editSchema),
+    defaultValues: {
+      name: user?.name || "",
+      bio: user?.bio || "",
+      birthday: user?.birthday
+        ? new Date(user.birthday as any).toISOString().substring(0, 10)
+        : "",
+      education: (user as any)?.education || "",
+      country: (user as any)?.country || "",
+      city: (user as any)?.city || "",
+      contactNumber: (user as any)?.contactNumber || "",
+    },
+    values: {
+      name: user?.name || "",
+      bio: user?.bio || "",
+      birthday: user?.birthday
+        ? new Date(user.birthday as any).toISOString().substring(0, 10)
+        : "",
+      education: (user as any)?.education || "",
+      country: (user as any)?.country || "",
+      city: (user as any)?.city || "",
+      contactNumber: (user as any)?.contactNumber || "",
+    },
+  });
+
+  const handleSave = async (data: EditData) => {
+    if (!user) return;
+    const res = await authenticatedApiRequest("PUT", `/api/users/${user.id}`, {
+      name: data.name,
+      bio: data.bio || null,
+      birthday: data.birthday ? new Date(data.birthday).toISOString() : null,
+      education: data.education || null,
+      country: data.country || null,
+      city: data.city || null,
+      contactNumber: data.contactNumber || null,
+    });
+    const updated = await res.json();
+    useAuthStore.getState().setUser(updated);
+    setIsEditOpen(false);
+  };
 
   if (!user) return null;
 
@@ -80,20 +158,30 @@ export default function Profile() {
                   <h1 className="text-2xl font-bold" data-testid="profile-name">
                     {user.name}
                   </h1>
-                  <p
-                    className="text-muted-foreground"
-                    data-testid="profile-title"
-                  >
-                    {user.bio || "Professional • EchoMateLite Member"}
-                  </p>
-                  <p
-                    className="text-sm text-muted-foreground mt-1"
-                    data-testid="profile-location"
-                  >
-                    San Francisco, CA • 500+ connections
-                  </p>
+                  {user.bio && (
+                    <p
+                      className="text-muted-foreground"
+                      data-testid="profile-title"
+                    >
+                      {user.bio}
+                    </p>
+                  )}
+                  {(user as any)?.city || (user as any)?.country ? (
+                    <p
+                      className="text-sm text-muted-foreground mt-1"
+                      data-testid="profile-location"
+                    >
+                      {[(user as any)?.city, (user as any)?.country]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </p>
+                  ) : null}
                 </div>
-                <Button className="px-4 py-2" data-testid="button-edit-profile">
+                <Button
+                  className="px-4 py-2"
+                  data-testid="button-edit-profile"
+                  onClick={() => setIsEditOpen(true)}
+                >
                   Edit Profile
                 </Button>
               </div>
@@ -252,6 +340,129 @@ export default function Profile() {
       </div>
 
       <MobileNav />
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit profile</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form
+              className="space-y-4"
+              onSubmit={form.handleSubmit(handleSave)}
+            >
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Your name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="bio"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bio</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Tell people about yourself"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="birthday"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Birthday</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="education"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Education</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., BSc Computer Science"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="country"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Country</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Country" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input placeholder="City" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="contactNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="+1 555 000 0000" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsEditOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Save</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
