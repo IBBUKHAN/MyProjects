@@ -143,8 +143,28 @@ export default function Profile() {
             <div className="px-6 pb-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-16 mb-6">
                 <Avatar
-                  className="w-32 h-32 border-4 border-background"
+                  className="w-32 h-32 border-4 border-background cursor-pointer"
                   data-testid="profile-avatar"
+                  onClick={async () => {
+                    if (!user) return;
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "image/*";
+                    input.onchange = async () => {
+                      if (!input.files || input.files.length === 0) return;
+                      const file = input.files[0];
+                      const form = new FormData();
+                      form.append("image", file);
+                      const res = await authenticatedApiRequest(
+                        "POST",
+                        "/api/upload/profile-picture",
+                        form
+                      );
+                      const { user: updated } = await res.json();
+                      useAuthStore.getState().setUser(updated);
+                    };
+                    input.click();
+                  }}
                 >
                   <AvatarImage
                     src={user.profilePictureUrl || undefined}

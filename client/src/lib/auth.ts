@@ -10,20 +10,20 @@ export const authApi = {
   login: async (data: LoginData): Promise<AuthResponse> => {
     const response = await apiRequest("POST", "/api/auth/login", data);
     const result = await response.json();
-    
+
     // Store token in localStorage
     localStorage.setItem("auth_token", result.token);
-    
+
     return result;
   },
 
   register: async (data: RegisterData): Promise<AuthResponse> => {
     const response = await apiRequest("POST", "/api/auth/register", data);
     const result = await response.json();
-    
+
     // Store token in localStorage
     localStorage.setItem("auth_token", result.token);
-    
+
     return result;
   },
 
@@ -70,16 +70,22 @@ export const authenticatedApiRequest = async (
   data?: unknown
 ): Promise<Response> => {
   const token = authApi.getToken();
-  
+
+  const isFormData =
+    typeof FormData !== "undefined" && data instanceof FormData;
   const headers: Record<string, string> = {
-    ...(data ? { "Content-Type": "application/json" } : {}),
+    ...(!isFormData && data ? { "Content-Type": "application/json" } : {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
   const res = await fetch(url, {
     method,
     headers,
-    body: data ? JSON.stringify(data) : undefined,
+    body: isFormData
+      ? (data as FormData)
+      : data
+      ? JSON.stringify(data)
+      : undefined,
     credentials: "include",
   });
 

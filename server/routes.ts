@@ -11,6 +11,7 @@ import {
   insertPostCommentSchema,
 } from "@shared/schema";
 import { z } from "zod";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 // JWT configuration
 const JWT_SECRET = process.env.SESSION_SECRET || "your-secret-key";
@@ -23,6 +24,13 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
+
+// S3 client (optional; enabled when env vars are set)
+console.log("====>>>>>", process.env.AWS_REGION, process.env.S3_BUCKET);
+const s3 =
+  process.env.AWS_REGION && process.env.S3_BUCKET
+    ? new S3Client({ region: process.env.AWS_REGION })
+    : undefined;
 
 // JWT middleware
 const authenticateToken = async (req: any, res: any, next: any) => {
@@ -331,12 +339,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!req.file) {
           return res.status(400).json({ message: "No file provided" });
         }
+        if (!s3 || !process.env.S3_BUCKET || !process.env.AWS_REGION) {
+          return res.status(500).json({ message: "S3 is not configured" });
+        }
 
-        // TODO: Implement S3 upload
-        // For now, return a placeholder URL
-        const imageUrl = `https://via.placeholder.com/150?text=${req.user.name}`;
+        const bucket = process.env.S3_BUCKET;
+        const key = `users/${req.user.id}/profile-${Date.now()}`;
+        const contentType = req.file.mimetype || "application/octet-stream";
 
-        res.json({ url: imageUrl });
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: req.file.buffer,
+            ContentType: contentType,
+            ACL: "public-read",
+          })
+        );
+
+        const imageUrl = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+        // persist on user profile
+        const updatedUser = await storage.updateUser(req.user.id, {
+          profilePictureUrl: imageUrl,
+        });
+        if (!updatedUser) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const { password, ...userWithoutPassword } = updatedUser;
+        res.json({ url: imageUrl, user: userWithoutPassword });
       } catch (error) {
         console.error("Upload profile picture error:", error);
         res.status(500).json({ message: "Internal server error" });
