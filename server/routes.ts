@@ -29,7 +29,16 @@ const upload = multer({
 console.log("====>>>>>", process.env.AWS_REGION, process.env.S3_BUCKET);
 const s3 =
   process.env.AWS_REGION && process.env.S3_BUCKET
-    ? new S3Client({ region: process.env.AWS_REGION })
+    ? new S3Client({
+        region: process.env.AWS_REGION,
+        credentials:
+          process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+            ? {
+                accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+                secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string,
+              }
+            : undefined,
+      })
     : undefined;
 
 // JWT middleware
@@ -353,7 +362,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             Key: key,
             Body: req.file.buffer,
             ContentType: contentType,
-            ACL: "public-read",
           })
         );
 
