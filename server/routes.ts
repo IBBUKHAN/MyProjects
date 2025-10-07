@@ -245,6 +245,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/posts/:id", authenticateToken, async (req: any, res) => {
+    try {
+      const post = await storage.getPost(req.params.id);
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      if (post.userId !== req.user.id) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+
+      const body = z.object({ content: z.string().min(1) }).parse(req.body);
+
+      // Simple update via createPost schema is not provided; do manual SQL
+      const updated = await storage.updatePostContent(
+        req.params.id,
+        body.content
+      );
+      return res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Update post error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/posts/:id", authenticateToken, async (req: any, res) => {
     try {
       const post = await storage.getPostWithAuthor(req.params.id, req.user.id);
@@ -393,11 +420,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!req.file) {
           return res.status(400).json({ message: "No file provided" });
         }
+        if (!s3 || !process.env.S3_BUCKET || !process.env.AWS_REGION) {
+          return res.status(500).json({ message: "S3 is not configured" });
+        }
 
-        // TODO: Implement S3 upload
-        // For now, return a placeholder URL
-        const imageUrl = `https://via.placeholder.com/600x400?text=Post+Image`;
+        const bucket = process.env.S3_BUCKET;
+        const key = `posts/${req.user.id}/post-${Date.now()}`;
+        const contentType = req.file.mimetype || "application/octet-stream";
 
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: bucket,
+            Key: key,
+            Body: req.file.buffer,
+            ContentType: contentType,
+          })
+        );
+
+        const imageUrl = `https://${bucket}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
         res.json({ url: imageUrl });
       } catch (error) {
         console.error("Upload post image error:", error);

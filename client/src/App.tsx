@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -13,6 +13,10 @@ import Login from "@/pages/login";
 import Register from "@/pages/register";
 import Home from "@/pages/home";
 import Profile from "@/pages/profile";
+import ArticleCompose from "@/pages/article-compose";
+import { Navbar } from "@/components/layout/navbar";
+import { MobileNav } from "@/components/layout/mobile-nav";
+import { Button } from "@/components/ui/button";
 
 function AuthCheck({ children }: { children: React.ReactNode }) {
   const { user, setUser, isAuthenticated } = useAuthStore();
@@ -88,15 +92,34 @@ function Router() {
         </ProtectedRoute>
       </Route>
 
+      <Route path="/compose/article">
+        <ProtectedRoute>
+          <ArticleCompose />
+        </ProtectedRoute>
+      </Route>
+
       <Route path="/notifications">
         <ProtectedRoute>
-          <div className="min-h-screen bg-background pt-20 pb-24 md:pb-8">
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h1 className="text-2xl font-bold mb-6">Notifications</h1>
-              <div className="glass-effect rounded-2xl p-6 text-center">
-                <p className="text-muted-foreground">No notifications yet.</p>
+          <div className="min-h-screen bg-background">
+            <Navbar />
+            <div className="pt-20 pb-24 md:pb-8">
+              <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h1 className="text-2xl font-bold">Notifications</h1>
+                  <Link href="/">
+                    <a>
+                      <Button variant="outline" size="sm">
+                        Back
+                      </Button>
+                    </a>
+                  </Link>
+                </div>
+                <div className="glass-effect rounded-2xl p-6 text-center">
+                  <p className="text-muted-foreground">No notifications yet.</p>
+                </div>
               </div>
             </div>
+            <MobileNav />
           </div>
         </ProtectedRoute>
       </Route>

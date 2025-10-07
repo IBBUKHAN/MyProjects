@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
@@ -36,6 +36,30 @@ export default function Profile() {
     "posts"
   );
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPhotoOpen, setIsPhotoOpen] = useState(false);
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const [scale, setScale] = useState(1);
+  const [drag, setDrag] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [startDrag, setStartDrag] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [baseScale, setBaseScale] = useState(1);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // When photo modal opens, seed preview with current profile picture (if any)
+  useEffect(() => {
+    if (isPhotoOpen) {
+      if (user?.profilePictureUrl) {
+        setPreviewSrc(user.profilePictureUrl);
+      } else {
+        setPreviewSrc(null);
+      }
+      setScale(1);
+      setDrag({ x: 0, y: 0 });
+      setBaseScale(1);
+    }
+  }, [isPhotoOpen]);
 
   const { data: userPosts, isLoading } = useQuery<PostWithAuthor[]>({
     queryKey: ["/api/users", user?.id, "posts"],
@@ -141,30 +165,11 @@ export default function Profile() {
 
             {/* Profile Info */}
             <div className="px-6 pb-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-16 mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 -mt-16 mb-6">
                 <Avatar
                   className="w-32 h-32 border-4 border-background cursor-pointer"
                   data-testid="profile-avatar"
-                  onClick={async () => {
-                    if (!user) return;
-                    const input = document.createElement("input");
-                    input.type = "file";
-                    input.accept = "image/*";
-                    input.onchange = async () => {
-                      if (!input.files || input.files.length === 0) return;
-                      const file = input.files[0];
-                      const form = new FormData();
-                      form.append("image", file);
-                      const res = await authenticatedApiRequest(
-                        "POST",
-                        "/api/upload/profile-picture",
-                        form
-                      );
-                      const { user: updated } = await res.json();
-                      useAuthStore.getState().setUser(updated);
-                    };
-                    input.click();
-                  }}
+                  onClick={() => setIsPhotoOpen(true)}
                 >
                   <AvatarImage
                     src={user.profilePictureUrl || undefined}
@@ -174,8 +179,11 @@ export default function Profile() {
                     {user.name.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className="flex-1">
-                  <h1 className="text-2xl font-bold" data-testid="profile-name">
+                <div className="flex-1 min-w-0">
+                  <h1
+                    className="text-2xl font-bold truncate"
+                    data-testid="profile-name"
+                  >
                     {user.name}
                   </h1>
                   {user.bio && (
@@ -360,6 +368,183 @@ export default function Profile() {
       </div>
 
       <MobileNav />
+      {/* Profile photo modal */}
+      <Dialog
+        open={isPhotoOpen}
+        onOpenChange={(v) => {
+          setIsPhotoOpen(v);
+          if (!v) {
+            setPreviewSrc(null);
+            setScale(1);
+            setDrag({ x: 0, y: 0 });
+          }
+        }}
+      >
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Profile photo</DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-6">
+            <div className="flex-1">
+              <div
+                ref={containerRef}
+                className="relative w-full aspect-square rounded-full overflow-hidden bg-black/60"
+                onMouseDown={(e) =>
+                  setStartDrag({ x: e.clientX - drag.x, y: e.clientY - drag.y })
+                }
+                onMouseUp={() => setStartDrag(null)}
+                onMouseLeave={() => setStartDrag(null)}
+                onMouseMove={(e) => {
+                  if (startDrag) {
+                    setDrag({
+                      x: e.clientX - startDrag.x,
+                      y: e.clientY - startDrag.y,
+                    });
+                  }
+                }}
+              >
+                {previewSrc ? (
+                  <img
+                    ref={imgRef}
+                    src={previewSrc}
+                    alt="preview"
+                    className="select-none pointer-events-none"
+                    style={{
+                      position: "absolute",
+                      left: "50%",
+                      top: "50%",
+                      transform: `translate(-50%, -50%) translate(${
+                        drag.x
+                      }px, ${drag.y}px) scale(${baseScale * scale})`,
+                    }}
+                    onLoad={() => {
+                      const img = imgRef.current;
+                      const container = containerRef.current;
+                      if (!img || !container) return;
+                      const cont = container.clientWidth || 512;
+                      const s = Math.max(
+                        cont / img.naturalWidth,
+                        cont / img.naturalHeight
+                      );
+                      setBaseScale(s);
+                    }}
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                    <span className="text-6xl font-semibold">
+                      {user?.name?.charAt(0).toUpperCase() || "U"}
+                    </span>
+                  </div>
+                )}
+                {/* circular mask border */}
+                <div className="absolute inset-0 rounded-full ring-2 ring-white/60 pointer-events-none" />
+              </div>
+              {previewSrc && (
+                <div className="mt-4">
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.01}
+                    value={scale}
+                    onChange={(e) => setScale(parseFloat(e.target.value))}
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="w-56 space-y-3">
+              <Button
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
+                  input.onchange = () => {
+                    const file = input.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () =>
+                      setPreviewSrc(reader.result as string);
+                    reader.readAsDataURL(file);
+                  };
+                  input.click();
+                }}
+                className="w-full bg-[#0a66c2] hover:bg-[#004182] text-white"
+              >
+                Update photo
+              </Button>
+              <Button
+                variant="destructive"
+                className="w-full bg-[#e63946] hover:bg-[#d62839] text-white"
+                onClick={async () => {
+                  if (!user) return;
+                  await authenticatedApiRequest(
+                    "PUT",
+                    `/api/users/${user.id}`,
+                    { profilePictureUrl: null }
+                  );
+                  const updated = { ...user, profilePictureUrl: null } as any;
+                  useAuthStore.getState().setUser(updated);
+                  setIsPhotoOpen(false);
+                }}
+              >
+                Delete
+              </Button>
+              {previewSrc && (
+                <Button
+                  className="w-full bg-[#0a66c2] hover:bg-[#004182] text-white"
+                  onClick={async () => {
+                    // Render to canvas with current transforms
+                    const size = 512;
+                    const canvas = document.createElement("canvas");
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext("2d")!;
+                    // fill circle background
+                    ctx.fillStyle = "#000";
+                    ctx.fillRect(0, 0, size, size);
+                    const img = imgRef.current!;
+                    // compute draw size centered with transforms
+                    const container = containerRef.current!;
+                    const baseW = img.naturalWidth;
+                    const baseH = img.naturalHeight;
+                    const scalePx = scale;
+                    const drawW = baseW * (baseScale * scalePx);
+                    const drawH = baseH * (baseScale * scalePx);
+                    // translate drag from container px to canvas px (assuming container is square)
+                    const contSize = container.clientWidth || size;
+                    const dx = (size - drawW) / 2 + (drag.x * size) / contSize;
+                    const dy = (size - drawH) / 2 + (drag.y * size) / contSize;
+                    ctx.drawImage(img, dx, dy, drawW, drawH);
+                    // convert to blob and upload
+                    canvas.toBlob(async (blob) => {
+                      if (!blob) return;
+                      const form = new FormData();
+                      form.append("image", blob, "profile.png");
+                      const res = await authenticatedApiRequest(
+                        "POST",
+                        "/api/upload/profile-picture",
+                        form
+                      );
+                      const { user: updated } = await res.json();
+                      const cacheBusted = updated?.profilePictureUrl
+                        ? `${updated.profilePictureUrl}?t=${Date.now()}`
+                        : null;
+                      useAuthStore.getState().setUser({
+                        ...(updated as any),
+                        profilePictureUrl: cacheBusted,
+                      } as any);
+                      setIsPhotoOpen(false);
+                    }, "image/png");
+                  }}
+                >
+                  Save
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent>
           <DialogHeader>

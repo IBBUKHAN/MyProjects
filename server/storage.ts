@@ -37,6 +37,7 @@ export interface IStorage {
     currentUserId: string
   ): Promise<PostWithAuthor[]>;
   createPost(insertPost: InsertPost): Promise<Post>;
+  updatePostContent(id: string, content: string): Promise<Post>;
   deletePost(id: string): Promise<void>;
 
   // Like methods
@@ -204,7 +205,19 @@ export class DatabaseStorage implements IStorage {
     return post;
   }
 
+  async updatePostContent(id: string, content: string): Promise<Post> {
+    const [postRow] = await db
+      .update(posts)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(posts.id, id))
+      .returning();
+    return postRow as Post;
+  }
+
   async deletePost(id: string): Promise<void> {
+    // Delete dependent rows first to satisfy foreign key constraints
+    await db.delete(postLikes).where(eq(postLikes.postId, id));
+    await db.delete(postComments).where(eq(postComments.postId, id));
     await db.delete(posts).where(eq(posts.id, id));
   }
 

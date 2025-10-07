@@ -55,6 +55,11 @@ export const authApi = {
       }
 
       const result = await response.json();
+      if (result?.user?.profilePictureUrl) {
+        result.user.profilePictureUrl = `${
+          result.user.profilePictureUrl
+        }?t=${Date.now()}`;
+      }
       return result.user;
     } catch (error) {
       console.error("Failed to get current user:", error);
