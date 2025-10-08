@@ -348,10 +348,10 @@ export default function Home() {
                 <div className="glass-effect rounded-2xl p-6">
                   <h3 className="font-semibold mb-4">Trending Topics</h3>
                   {!trendingTopics || trendingTopics.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/20 flex items-center justify-center">
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-primary/20 flex items-center justify-center">
                         <svg
-                          className="w-8 h-8 text-muted-foreground"
+                          className="w-6 h-6 text-muted-foreground"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -364,7 +364,7 @@ export default function Home() {
                           />
                         </svg>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-sm text-muted-foreground mb-1">
                         No trending topics yet
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -397,10 +397,10 @@ export default function Home() {
                 <div className="glass-effect rounded-2xl p-6">
                   <h3 className="font-semibold mb-4">Who to Follow</h3>
                   {!suggestions || suggestions.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
+                    <div className="text-center py-6">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-accent/20 flex items-center justify-center">
                         <svg
-                          className="w-8 h-8 text-muted-foreground"
+                          className="w-6 h-6 text-muted-foreground"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -413,7 +413,7 @@ export default function Home() {
                           />
                         </svg>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2">
+                      <p className="text-sm text-muted-foreground mb-1">
                         No suggestions right now
                       </p>
                       <p className="text-xs text-muted-foreground">
