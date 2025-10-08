@@ -347,101 +347,153 @@ export default function Home() {
                 {/* Trending Topics */}
                 <div className="glass-effect rounded-2xl p-6">
                   <h3 className="font-semibold mb-4">Trending Topics</h3>
-                  <div className="space-y-4">
-                    {(trendingTopics || []).map((trend, i) => (
-                      <div
-                        key={i}
-                        className="cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
-                        data-testid={`trending-topic-${i}`}
-                        onClick={() => {
-                          setSelectedTag(trend.tag);
-                          window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
-                      >
-                        <p className="text-sm font-medium">{trend.tag}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {trend.count} posts
-                        </p>
+                  {!trendingTopics || trendingTopics.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/20 flex items-center justify-center">
+                        <svg
+                          className="w-8 h-8 text-muted-foreground"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+                          />
+                        </svg>
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        No trending topics yet
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Start using hashtags in your posts
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {trendingTopics.map((trend, i) => (
+                        <div
+                          key={i}
+                          className="cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
+                          data-testid={`trending-topic-${i}`}
+                          onClick={() => {
+                            setSelectedTag(trend.tag);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                        >
+                          <p className="text-sm font-medium">{trend.tag}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {trend.count} posts
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Who to Follow */}
                 <div className="glass-effect rounded-2xl p-6">
                   <h3 className="font-semibold mb-4">Who to Follow</h3>
-                  <div className="space-y-4">
-                    {(suggestions || []).map((person, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-3"
-                        data-testid={`suggestion-${i}`}
-                      >
-                        <Avatar className="w-10 h-10">
-                          {person.profilePictureUrl ? (
-                            <AvatarImage
-                              src={person.profilePictureUrl}
-                              alt={person.name}
-                            />
-                          ) : (
-                            <AvatarFallback>
-                              {person.name
-                                .split(" ")
-                                .map((s) => s[0])
-                                .join("")
-                                .slice(0, 2)
-                                .toUpperCase()}
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div
-                          className="flex-1 min-w-0 cursor-pointer"
-                          onClick={() => navigate(`/users/${person.id}`)}
+                  {!suggestions || suggestions.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-accent/20 flex items-center justify-center">
+                        <svg
+                          className="w-8 h-8 text-muted-foreground"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          <p className="text-sm font-medium truncate">
-                            {person.name}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs"
-                          data-testid={`button-follow-${i}`}
-                          onClick={async () => {
-                            try {
-                              await authenticatedApiRequest(
-                                "POST",
-                                `/api/users/${person.id}/follow`
-                              );
-                              // Invalidate suggestions
-                              queryClient.invalidateQueries({
-                                queryKey: ["/api/suggestions"],
-                              });
-                              // Invalidate current user's profile data to update following count
-                              if (user?.id) {
-                                queryClient.invalidateQueries({
-                                  queryKey: [`/api/users/${user.id}`],
-                                });
-                                queryClient.invalidateQueries({
-                                  queryKey: [
-                                    `/api/users/${user.id}/follow-counts`,
-                                  ],
-                                });
-                              }
-                              toast({
-                                title: "Followed",
-                                description: `You are now following ${person.name}`,
-                              });
-                            } catch (e) {
-                              console.error(e);
-                            }
-                          }}
-                        >
-                          Follow
-                        </Button>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                          />
+                        </svg>
                       </div>
-                    ))}
-                  </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        No suggestions right now
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Check back later for people to follow
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {suggestions.map((person, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center gap-3"
+                          data-testid={`suggestion-${i}`}
+                        >
+                          <Avatar className="w-10 h-10">
+                            {person.profilePictureUrl ? (
+                              <AvatarImage
+                                src={person.profilePictureUrl}
+                                alt={person.name}
+                              />
+                            ) : (
+                              <AvatarFallback>
+                                {person.name
+                                  .split(" ")
+                                  .map((s) => s[0])
+                                  .join("")
+                                  .slice(0, 2)
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <div
+                            className="flex-1 min-w-0 cursor-pointer"
+                            onClick={() => navigate(`/users/${person.id}`)}
+                          >
+                            <p className="text-sm font-medium truncate">
+                              {person.name}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            data-testid={`button-follow-${i}`}
+                            onClick={async () => {
+                              try {
+                                await authenticatedApiRequest(
+                                  "POST",
+                                  `/api/users/${person.id}/follow`
+                                );
+                                // Invalidate suggestions
+                                queryClient.invalidateQueries({
+                                  queryKey: ["/api/suggestions"],
+                                });
+                                // Invalidate current user's profile data to update following count
+                                if (user?.id) {
+                                  queryClient.invalidateQueries({
+                                    queryKey: [`/api/users/${user.id}`],
+                                  });
+                                  queryClient.invalidateQueries({
+                                    queryKey: [
+                                      `/api/users/${user.id}/follow-counts`,
+                                    ],
+                                  });
+                                }
+                                toast({
+                                  title: "Followed",
+                                  description: `You are now following ${person.name}`,
+                                });
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                          >
+                            Follow
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </aside>
