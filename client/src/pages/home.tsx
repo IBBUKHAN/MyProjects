@@ -8,6 +8,12 @@ import { Navbar } from "@/components/layout/navbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { PostCard } from "@/components/post/post-card";
 import { CreatePostModal } from "@/components/post/create-post-modal";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
@@ -24,6 +30,9 @@ export default function Home() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [followModal, setFollowModal] = useState<
+    "followers" | "following" | null
+  >(null);
 
   const {
     data: posts,
@@ -79,6 +88,46 @@ export default function Home() {
     },
   });
 
+  const { data: followers } = useQuery<
+    Array<{
+      id: string;
+      name: string;
+      profilePictureUrl: string | null;
+      bio: string | null;
+    }>
+  >({
+    queryKey: ["/api/users", user?.id, "followers"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await authenticatedApiRequest(
+        "GET",
+        `/api/users/${user.id}/followers`
+      );
+      return res.json();
+    },
+    enabled: !!user && followModal === "followers",
+  });
+
+  const { data: following } = useQuery<
+    Array<{
+      id: string;
+      name: string;
+      profilePictureUrl: string | null;
+      bio: string | null;
+    }>
+  >({
+    queryKey: ["/api/users", user?.id, "following"],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const res = await authenticatedApiRequest(
+        "GET",
+        `/api/users/${user.id}/following`
+      );
+      return res.json();
+    },
+    enabled: !!user && followModal === "following",
+  });
+
   if (!user) return null;
 
   return (
@@ -118,7 +167,10 @@ export default function Home() {
                       {user.bio || "Professional • EchoMateLite Member"}
                     </p>
                     <div className="grid grid-cols-2 gap-4 text-center pt-4 border-t border-border">
-                      <div>
+                      <div
+                        className="cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
+                        onClick={() => setFollowModal("followers")}
+                      >
                         <p
                           className="text-xl font-bold"
                           data-testid="sidebar-followers-count"
@@ -129,7 +181,10 @@ export default function Home() {
                           Followers
                         </p>
                       </div>
-                      <div>
+                      <div
+                        className="cursor-pointer hover:bg-accent/10 p-2 rounded-lg transition-colors"
+                        onClick={() => setFollowModal("following")}
+                      >
                         <p
                           className="text-xl font-bold"
                           data-testid="sidebar-following-count"
@@ -148,27 +203,43 @@ export default function Home() {
                 <div className="glass-effect rounded-2xl p-4">
                   <h4 className="font-semibold mb-3">Quick Links</h4>
                   <div className="space-y-2">
-                    <a
-                      href="#"
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors text-sm"
+                    <button
+                      onClick={() => {
+                        toast({
+                          title: "Coming Soon",
+                          description:
+                            "Saved Posts feature will be available soon!",
+                        });
+                      }}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors text-sm w-full text-left"
                     >
                       <span className="w-5 h-5 text-primary">📚</span>
                       Saved Posts
-                    </a>
-                    <a
-                      href="#"
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors text-sm"
+                    </button>
+                    <button
+                      onClick={() => {
+                        toast({
+                          title: "Coming Soon",
+                          description: "Groups feature will be available soon!",
+                        });
+                      }}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors text-sm w-full text-left"
                     >
                       <span className="w-5 h-5 text-accent">👥</span>
                       Groups
-                    </a>
-                    <a
-                      href="#"
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors text-sm"
+                    </button>
+                    <button
+                      onClick={() => {
+                        toast({
+                          title: "Coming Soon",
+                          description: "Events feature will be available soon!",
+                        });
+                      }}
+                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-accent/10 transition-colors text-sm w-full text-left"
                     >
                       <span className="w-5 h-5 text-muted-foreground">📅</span>
                       Events
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -387,6 +458,115 @@ export default function Home() {
         }}
         openAction={createAction}
       />
+
+      {/* Followers/Following Modal */}
+      <Dialog open={!!followModal} onOpenChange={() => setFollowModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {followModal === "followers" ? "Followers" : "Following"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-96 overflow-y-auto">
+            {followModal === "followers" && (
+              <div className="space-y-3">
+                {!followers || followers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No followers yet.
+                  </p>
+                ) : (
+                  followers.map((follower) => (
+                    <div
+                      key={follower.id}
+                      className="flex items-center gap-3 p-2 hover:bg-accent/10 rounded-lg cursor-pointer"
+                      onClick={() => {
+                        setFollowModal(null);
+                        navigate(`/users/${follower.id}`);
+                      }}
+                    >
+                      <Avatar className="w-10 h-10">
+                        {follower.profilePictureUrl ? (
+                          <AvatarImage
+                            src={follower.profilePictureUrl}
+                            alt={follower.name}
+                          />
+                        ) : (
+                          <AvatarFallback>
+                            {follower.name
+                              .split(" ")
+                              .map((s) => s[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {follower.name}
+                        </p>
+                        {follower.bio && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {follower.bio}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            {followModal === "following" && (
+              <div className="space-y-3">
+                {!following || following.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Not following anyone yet.
+                  </p>
+                ) : (
+                  following.map((followingUser) => (
+                    <div
+                      key={followingUser.id}
+                      className="flex items-center gap-3 p-2 hover:bg-accent/10 rounded-lg cursor-pointer"
+                      onClick={() => {
+                        setFollowModal(null);
+                        navigate(`/users/${followingUser.id}`);
+                      }}
+                    >
+                      <Avatar className="w-10 h-10">
+                        {followingUser.profilePictureUrl ? (
+                          <AvatarImage
+                            src={followingUser.profilePictureUrl}
+                            alt={followingUser.name}
+                          />
+                        ) : (
+                          <AvatarFallback>
+                            {followingUser.name
+                              .split(" ")
+                              .map((s) => s[0])
+                              .join("")
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {followingUser.name}
+                        </p>
+                        {followingUser.bio && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {followingUser.bio}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

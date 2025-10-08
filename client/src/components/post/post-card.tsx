@@ -204,16 +204,19 @@ export function PostCard({ post }: PostCardProps) {
           >
             {post.content}
           </p>
-          {post.imageUrl && (
-            <img
-              src={post.imageUrl}
-              alt="Post content"
-              className="mt-4 rounded-xl w-full object-contain max-h-[480px] bg-muted"
-              data-testid={`post-image-${post.id}`}
-            />
-          )}
         </div>
       </div>
+
+      {post.imageUrl && (
+        <div className="mt-4 px-0">
+          <img
+            src={post.imageUrl}
+            alt="Post content"
+            className="rounded-xl w-full object-contain max-h-[480px] bg-muted mx-auto"
+            data-testid={`post-image-${post.id}`}
+          />
+        </div>
+      )}
 
       {/* Edit modal */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
