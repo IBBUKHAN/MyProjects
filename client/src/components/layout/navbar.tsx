@@ -35,14 +35,14 @@ export function Navbar() {
       // Clear user from store
       logout();
 
-      // Navigate to login
-      navigate("/login");
+      // Force page refresh and redirect to login
+      window.location.href = "/login";
     } catch (error) {
       console.error("Logout error:", error);
       // Force logout anyway
       localStorage.removeItem("auth_token");
       logout();
-      navigate("/login");
+      window.location.href = "/login";
     }
   };
 

@@ -116,7 +116,7 @@ export const authenticatedApiRequest = async (
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     if (res.status === 401) {
-      authApi.logout();
+      await authApi.logout();
       window.location.href = "/login";
     }
     throw new Error(`${res.status}: ${text}`);
