@@ -99,7 +99,9 @@ export default function Profile() {
     },
   });
 
-  const { data: followers } = useQuery<Omit<User, "password">[]>({
+  const { data: followers, isLoading: isLoadingFollowers } = useQuery<
+    Omit<User, "password">[]
+  >({
     queryKey: ["/api/users", user?.id, "followers"],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -112,7 +114,9 @@ export default function Profile() {
     enabled: !!user && followModal === "followers",
   });
 
-  const { data: following } = useQuery<Omit<User, "password">[]>({
+  const { data: following, isLoading: isLoadingFollowing } = useQuery<
+    Omit<User, "password">[]
+  >({
     queryKey: ["/api/users", user?.id, "following"],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -860,7 +864,18 @@ export default function Profile() {
           <div className="max-h-96 overflow-y-auto">
             {followModal === "followers" && (
               <div className="space-y-3">
-                {!followers || followers.length === 0 ? (
+                {isLoadingFollowers ? (
+                  // Loading skeleton for followers
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))
+                ) : !followers || followers.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No followers yet.
                   </p>
@@ -908,7 +923,18 @@ export default function Profile() {
             )}
             {followModal === "following" && (
               <div className="space-y-3">
-                {!following || following.length === 0 ? (
+                {isLoadingFollowing ? (
+                  // Loading skeleton for following
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))
+                ) : !following || following.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Not following anyone yet.
                   </p>

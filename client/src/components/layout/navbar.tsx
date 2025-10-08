@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuthStore, useThemeStore } from "@/lib/store";
 import { authApi, authenticatedApiRequest } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, User, Bell, Sun, Moon, MessageCircle } from "lucide-react";
+import { Home, User, Bell, MessageCircle } from "lucide-react";
 
 export function Navbar() {
   const [location, navigate] = useLocation();
@@ -118,19 +119,7 @@ export function Navbar() {
           {/* Right Section */}
           <div className="flex items-center gap-4">
             {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleTheme}
-              className="p-2"
-              data-testid="button-theme-toggle"
-            >
-              {theme === "dark" ? (
-                <Sun className="w-5 h-5" strokeWidth={1.5} />
-              ) : (
-                <Moon className="w-5 h-5" strokeWidth={1.5} />
-              )}
-            </Button>
+            <ThemeToggle className="p-2" />
 
             {/* User Menu */}
             <div className="flex items-center gap-2">

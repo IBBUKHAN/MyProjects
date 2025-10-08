@@ -88,7 +88,7 @@ export default function Home() {
     },
   });
 
-  const { data: followers } = useQuery<
+  const { data: followers, isLoading: isLoadingFollowers } = useQuery<
     Array<{
       id: string;
       name: string;
@@ -108,7 +108,7 @@ export default function Home() {
     enabled: !!user && followModal === "followers",
   });
 
-  const { data: following } = useQuery<
+  const { data: following, isLoading: isLoadingFollowing } = useQuery<
     Array<{
       id: string;
       name: string;
@@ -522,7 +522,18 @@ export default function Home() {
           <div className="max-h-96 overflow-y-auto">
             {followModal === "followers" && (
               <div className="space-y-3">
-                {!followers || followers.length === 0 ? (
+                {isLoadingFollowers ? (
+                  // Loading skeleton for followers
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))
+                ) : !followers || followers.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No followers yet.
                   </p>
@@ -570,7 +581,18 @@ export default function Home() {
             )}
             {followModal === "following" && (
               <div className="space-y-3">
-                {!following || following.length === 0 ? (
+                {isLoadingFollowing ? (
+                  // Loading skeleton for following
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2">
+                      <Skeleton className="w-10 h-10 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-2" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))
+                ) : !following || following.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Not following anyone yet.
                   </p>

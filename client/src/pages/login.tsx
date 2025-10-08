@@ -3,8 +3,9 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { MessageCircle, Eye, EyeOff, Loader2, Moon, Sun } from "lucide-react";
+import { MessageCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -61,19 +62,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-20">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="fixed top-4 right-4"
-        onClick={toggleTheme}
-        data-testid="theme-toggle"
-      >
-        {theme === "dark" ? (
-          <Sun className="h-5 w-5" />
-        ) : (
-          <Moon className="h-5 w-5" />
-        )}
-      </Button>
+      <ThemeToggle className="fixed top-4 right-4" />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-primary mx-auto mb-4 flex items-center justify-center">
