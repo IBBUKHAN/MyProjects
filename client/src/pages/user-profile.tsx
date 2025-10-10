@@ -194,14 +194,6 @@ export default function UserProfile() {
                   >
                     {profileUser?.name}
                   </h1>
-                  {profileUser?.bio && (
-                    <p
-                      className="text-muted-foreground"
-                      data-testid="profile-title"
-                    >
-                      {profileUser?.bio}
-                    </p>
-                  )}
                   {(profileUser as any)?.city ||
                   (profileUser as any)?.country ? (
                     <p
@@ -217,14 +209,17 @@ export default function UserProfile() {
                     </p>
                   ) : null}
                 </div>
-                <Button
-                  className="px-4 py-2"
-                  variant={profileUser?.isFollowing ? "outline" : "default"}
-                  onClick={() => followMutation.mutate()}
-                  disabled={followMutation.isPending}
-                >
-                  {profileUser?.isFollowing ? "Unfollow" : "Follow"}
-                </Button>
+                {/* Only show follow button if viewing someone else's profile */}
+                {currentUser?.id !== profileUserId && (
+                  <Button
+                    className="px-4 py-2"
+                    variant={profileUser?.isFollowing ? "outline" : "default"}
+                    onClick={() => followMutation.mutate()}
+                    disabled={followMutation.isPending}
+                  >
+                    {profileUser?.isFollowing ? "Unfollow" : "Follow"}
+                  </Button>
+                )}
               </div>
 
               {/* Bio */}

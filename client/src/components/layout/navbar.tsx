@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuthStore, useThemeStore } from "@/lib/store";
 import { authApi, authenticatedApiRequest } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ export function Navbar() {
   const [location, navigate] = useLocation();
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
+  const queryClient = useQueryClient();
 
   // Fetch unread notification count
   const { data: unreadData } = useQuery({
@@ -27,6 +28,16 @@ export function Navbar() {
   });
 
   const unreadCount = unreadData?.count || 0;
+
+  const handleHomeClick = () => {
+    // If already on home page, reload the page to fetch new content
+    if (location === "/") {
+      window.location.reload();
+    } else {
+      // Navigate to home page
+      navigate("/");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -68,19 +79,18 @@ export function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
-            <Link href="/">
-              <a
-                className={`nav-link flex flex-col items-center gap-1 transition-colors ${
-                  location === "/"
-                    ? "text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid="link-home"
-              >
-                <Home className="w-6 h-6" strokeWidth={1.5} />
-                <span className="text-xs">Home</span>
-              </a>
-            </Link>
+            <button
+              onClick={handleHomeClick}
+              className={`nav-link flex flex-col items-center gap-1 transition-colors ${
+                location === "/"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="link-home"
+            >
+              <Home className="w-6 h-6" strokeWidth={1.5} />
+              <span className="text-xs">Home</span>
+            </button>
             <Link href="/profile">
               <a
                 className={`nav-link flex flex-col items-center gap-1 transition-colors ${

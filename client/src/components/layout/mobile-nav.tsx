@@ -5,7 +5,7 @@ import { useAuthStore } from "@/lib/store";
 import { authenticatedApiRequest } from "@/lib/auth";
 
 export function MobileNav() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { isAuthenticated, user } = useAuthStore();
 
   // Fetch unread notification count
@@ -24,23 +24,32 @@ export function MobileNav() {
 
   const unreadCount = unreadData?.count || 0;
 
+  const handleHomeClick = () => {
+    // If already on home page, reload the page to fetch new content
+    if (location === "/") {
+      window.location.reload();
+    } else {
+      // Navigate to home page
+      navigate("/");
+    }
+  };
+
   if (!isAuthenticated) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 glass-effect border-t border-border md:hidden">
       <div className="flex items-center justify-around h-16">
-        <Link href="/">
-          <a
-            className={`flex flex-col items-center gap-1 transition-colors p-2 ${
-              location === "/"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            data-testid="mobile-link-home"
-          >
-            <Home className="w-6 h-6" strokeWidth={1.5} />
-          </a>
-        </Link>
+        <button
+          onClick={handleHomeClick}
+          className={`flex flex-col items-center gap-1 transition-colors p-2 ${
+            location === "/"
+              ? "text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-testid="mobile-link-home"
+        >
+          <Home className="w-6 h-6" strokeWidth={1.5} />
+        </button>
         <Link href="/profile">
           <a
             className={`flex flex-col items-center gap-1 transition-colors p-2 ${

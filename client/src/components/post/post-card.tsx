@@ -143,8 +143,9 @@ export function PostCard({ post }: PostCardProps) {
     >
       <div className="flex items-start gap-4 mb-4">
         <Avatar
-          className="w-12 h-12"
+          className="w-12 h-12 cursor-pointer hover:opacity-80 transition-opacity"
           data-testid={`post-avatar-${post.author.id}`}
+          onClick={() => navigate(`/users/${post.author.id}`)}
         >
           <AvatarImage
             src={post.author.profilePictureUrl || undefined}
@@ -158,8 +159,9 @@ export function PostCard({ post }: PostCardProps) {
           <div className="flex items-center justify-between">
             <div>
               <h3
-                className="font-semibold"
+                className="font-semibold cursor-pointer hover:text-primary transition-colors"
                 data-testid={`post-author-${post.id}`}
+                onClick={() => navigate(`/users/${post.author.id}`)}
               >
                 {post.author.name}
               </h3>
@@ -378,7 +380,10 @@ export function PostCard({ post }: PostCardProps) {
             <div className="space-y-4">
               {commentsData.map((c) => (
                 <div key={c.id} className="flex gap-3">
-                  <Avatar className="w-8 h-8">
+                  <Avatar
+                    className="w-8 h-8 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => navigate(`/users/${c.user.id}`)}
+                  >
                     <AvatarImage
                       src={c.user.profilePictureUrl || undefined}
                       alt={c.user.name}
@@ -389,7 +394,12 @@ export function PostCard({ post }: PostCardProps) {
                   </Avatar>
                   <div className="flex-1">
                     <div className="bg-accent/20 rounded-2xl px-3 py-2">
-                      <p className="text-sm font-medium">{c.user.name}</p>
+                      <p
+                        className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => navigate(`/users/${c.user.id}`)}
+                      >
+                        {c.user.name}
+                      </p>
                       <p className="text-sm text-foreground whitespace-pre-wrap">
                         {c.content}
                       </p>

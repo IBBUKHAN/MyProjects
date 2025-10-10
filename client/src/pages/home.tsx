@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 import { authenticatedApiRequest } from "@/lib/auth";
 import { useAuthStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import type { PostWithAuthor } from "@shared/schema";
 import { useLocation } from "wouter";
 
@@ -34,21 +35,101 @@ export default function Home() {
     "followers" | "following" | null
   >(null);
 
+  // Infinite scroll hook with debouncing
   const {
-    data: posts,
-    isLoading,
-    error,
-  } = useQuery<PostWithAuthor[]>({
-    queryKey: ["/api/posts", selectedTag],
-    queryFn: async () => {
-      const url = selectedTag
-        ? `/api/posts?tag=${encodeURIComponent(selectedTag.replace(/^#/, ""))}`
-        : "/api/posts";
-      const response = await authenticatedApiRequest("GET", url);
-      return response.json();
-    },
-    enabled: !!user,
+    isLoading: isLoadingMore,
+    hasMore,
+    loadMore,
+    reset: resetInfiniteScroll,
+    sentinelRef,
+    currentPage,
+    loadedPostsCount,
+    setLoadedPostsCount,
+    setHasMore,
+    setIsLoading: setIsLoadingMore,
+  } = useInfiniteScroll({
+    threshold: 0.1,
+    debounceMs: 400, // 400ms debounce for optimal performance
+    postsPerPage: 4, // Load 3 posts at a time
   });
+
+  // State for all loaded posts
+  const [allPosts, setAllPosts] = useState<PostWithAuthor[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Fetch posts with pagination
+  const fetchPosts = async (page: number, limit: number = 4) => {
+    const offset = page * limit;
+    const url = selectedTag
+      ? `/api/posts?tag=${encodeURIComponent(
+          selectedTag.replace(/^#/, "")
+        )}&limit=${limit}&offset=${offset}`
+      : `/api/posts?limit=${limit}&offset=${offset}`;
+    const response = await authenticatedApiRequest("GET", url);
+    return response.json();
+  };
+
+  // Load initial posts
+  useEffect(() => {
+    if (!user) return;
+
+    const loadInitialPosts = async () => {
+      setIsInitialLoading(true);
+      try {
+        const posts = await fetchPosts(0);
+        setAllPosts(posts);
+        setLoadedPostsCount(posts.length);
+        setHasMore(posts.length === 4); // If we got less than 3, no more posts
+      } catch (error) {
+        console.error("Failed to load initial posts:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load posts. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+
+    loadInitialPosts();
+  }, [user, selectedTag, toast]);
+
+  // Load more posts when page changes
+  useEffect(() => {
+    if (!user || currentPage === 0) return;
+
+    const loadMorePosts = async () => {
+      setIsLoadingMore(true);
+      try {
+        const newPosts = await fetchPosts(currentPage);
+        if (newPosts.length === 0) {
+          setHasMore(false);
+        } else {
+          setAllPosts((prev) => [...prev, ...newPosts]);
+          setLoadedPostsCount(loadedPostsCount + newPosts.length);
+          setHasMore(newPosts.length === 4);
+        }
+      } catch (error) {
+        console.error("Failed to load more posts:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load more posts. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingMore(false);
+      }
+    };
+
+    loadMorePosts();
+  }, [currentPage, user, toast]);
+
+  // Reset infinite scroll when tag changes
+  useEffect(() => {
+    resetInfiniteScroll();
+    setAllPosts([]);
+  }, [selectedTag, resetInfiniteScroll]);
 
   const { data: trendingTopics } = useQuery<
     Array<{ tag: string; count: number }>
@@ -302,7 +383,7 @@ export default function Home() {
               </div>
 
               {/* Feed Posts */}
-              {isLoading ? (
+              {isInitialLoading ? (
                 <div className="space-y-4">
                   {[...Array(3)].map((_, i) => (
                     <div key={i} className="glass-effect rounded-2xl p-6">
@@ -317,13 +398,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-              ) : error ? (
-                <div className="glass-effect rounded-2xl p-6 text-center">
-                  <p className="text-muted-foreground">
-                    Failed to load posts. Please try again.
-                  </p>
-                </div>
-              ) : !posts || posts.length === 0 ? (
+              ) : !allPosts || allPosts.length === 0 ? (
                 <div className="glass-effect rounded-2xl p-6 text-center">
                   <p
                     className="text-muted-foreground"
@@ -334,9 +409,32 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {posts.map((post) => (
+                  {allPosts.map((post) => (
                     <PostCard key={post.id} post={post} />
                   ))}
+
+                  {/* Infinite scroll sentinel */}
+                  {hasMore && (
+                    <div ref={sentinelRef} className="flex justify-center py-4">
+                      {isLoadingMore ? (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          <span>Loading more posts...</span>
+                        </div>
+                      ) : (
+                        <div className="w-full h-1"></div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* End of posts indicator */}
+                  {!hasMore && allPosts.length > 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground text-sm">
+                        You've reached the end of the feed
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </main>

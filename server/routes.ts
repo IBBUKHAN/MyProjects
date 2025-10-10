@@ -225,7 +225,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Post routes
   app.get("/api/posts", authenticateToken, async (req: any, res) => {
     try {
-      const posts = await storage.getPosts(req.user.id);
+      const limit = parseInt(req.query.limit as string) || 20;
+      const offset = parseInt(req.query.offset as string) || 0;
+
+      const posts = await storage.getPosts(req.user.id, limit, offset);
       const tag = (req.query.tag as string | undefined)
         ?.toLowerCase()
         ?.replace(/^#/, "");

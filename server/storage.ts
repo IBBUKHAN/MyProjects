@@ -29,7 +29,11 @@ export interface IStorage {
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
 
   // Post methods
-  getPosts(userId: string): Promise<PostWithAuthor[]>;
+  getPosts(
+    userId: string,
+    limit?: number,
+    offset?: number
+  ): Promise<PostWithAuthor[]>;
   getPost(id: string): Promise<Post | undefined>;
   getPostWithAuthor(
     id: string,
@@ -118,11 +122,17 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Post methods
-  async getPosts(userId: string): Promise<PostWithAuthor[]> {
+  async getPosts(
+    userId: string,
+    limit = 20,
+    offset = 0
+  ): Promise<PostWithAuthor[]> {
     const postsData = await db
       .select()
       .from(posts)
-      .orderBy(desc(posts.createdAt));
+      .orderBy(desc(posts.createdAt))
+      .limit(limit)
+      .offset(offset);
 
     const postsWithDetails = await Promise.all(
       postsData.map(async (post) => {
