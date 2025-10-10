@@ -70,7 +70,11 @@ export default function Profile() {
     }
   }, [isPhotoOpen]);
 
-  const { data: userPosts, isLoading } = useQuery<PostWithAuthor[]>({
+  const {
+    data: userPosts,
+    isLoading,
+    refetch: refetchPosts,
+  } = useQuery<PostWithAuthor[]>({
     queryKey: ["/api/users", user?.id, "posts"],
     queryFn: async () => {
       if (!user) return [];
@@ -82,6 +86,11 @@ export default function Profile() {
     },
     enabled: !!user,
   });
+
+  // Handle post deletion in real-time
+  const handlePostDeleted = () => {
+    refetchPosts();
+  };
 
   const { data: followCounts } = useQuery<{
     followers: number;
@@ -379,7 +388,11 @@ export default function Profile() {
               ) : (
                 <div className="space-y-4">
                   {userPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      onPostDeleted={handlePostDeleted}
+                    />
                   ))}
                 </div>
               )}

@@ -35,9 +35,10 @@ import { Textarea } from "@/components/ui/textarea";
 
 interface PostCardProps {
   post: PostWithAuthor;
+  onPostDeleted?: (postId: string) => void;
 }
 
-export function PostCard({ post }: PostCardProps) {
+export function PostCard({ post, onPostDeleted }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes.length);
   const [commentsCount, setCommentsCount] = useState(post.comments.length);
@@ -118,6 +119,7 @@ export function PostCard({ post }: PostCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
       queryClient.invalidateQueries({ queryKey: ["/api/trending"] });
+      onPostDeleted?.(post.id); // Notify parent to remove post from UI
       toast({ title: "Post deleted" });
     },
     onError: () => {
@@ -192,13 +194,13 @@ export function PostCard({ post }: PostCardProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="p-2"
+                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50"
                     data-testid={`post-menu-${post.id}`}
                   >
                     <MoreHorizontal className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" side="bottom" sideOffset={8}>
                   <DropdownMenuItem onClick={() => setIsEditOpen(true)}>
                     Edit
                   </DropdownMenuItem>
@@ -288,8 +290,8 @@ export function PostCard({ post }: PostCardProps) {
             onClick={handleLike}
             className={`flex items-center gap-2 transition-colors ${
               isLiked
-                ? "text-primary"
-                : "text-muted-foreground hover:text-primary"
+                ? "text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
             }`}
             disabled={likeMutation.isPending}
             data-testid={`button-like-${post.id}`}
@@ -306,7 +308,7 @@ export function PostCard({ post }: PostCardProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
           onClick={() => setIsCommenting((v) => !v)}
           data-testid={`button-comment-${post.id}`}
         >
@@ -316,7 +318,7 @@ export function PostCard({ post }: PostCardProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors ml-auto"
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors ml-auto"
           onClick={async () => {
             const url = `${window.location.origin}/?post=${post.id}`;
 

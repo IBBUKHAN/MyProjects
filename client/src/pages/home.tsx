@@ -69,6 +69,39 @@ export default function Home() {
     return response.json();
   };
 
+  // Function to reload posts from the beginning
+  const reloadPosts = async () => {
+    if (!user) return;
+
+    try {
+      // Reset infinite scroll first to clear the page counter
+      resetInfiniteScroll();
+
+      // Fetch fresh posts
+      const posts = await fetchPosts(0);
+      setAllPosts(posts);
+      setLoadedPostsCount(posts.length);
+      setHasMore(posts.length === 4);
+    } catch (error) {
+      console.error("Failed to reload posts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reload posts. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to handle post deletion in real-time
+  const handlePostDeleted = (postId: string) => {
+    setAllPosts((prevPosts) => {
+      const filtered = prevPosts.filter((post) => post.id !== postId);
+      // Update loaded posts count after filtering
+      setLoadedPostsCount(Math.max(0, filtered.length));
+      return filtered;
+    });
+  };
+
   // Load initial posts
   useEffect(() => {
     if (!user) return;
@@ -107,7 +140,9 @@ export default function Home() {
           setHasMore(false);
         } else {
           setAllPosts((prev) => [...prev, ...newPosts]);
-          setLoadedPostsCount(loadedPostsCount + newPosts.length);
+          // Calculate total loaded posts count
+          const newTotalCount = allPosts.length + newPosts.length;
+          setLoadedPostsCount(newTotalCount);
           setHasMore(newPosts.length === 4);
         }
       } catch (error) {
@@ -410,7 +445,11 @@ export default function Home() {
               ) : (
                 <div className="space-y-4">
                   {allPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      onPostDeleted={handlePostDeleted}
+                    />
                   ))}
 
                   {/* Infinite scroll sentinel */}
@@ -607,6 +646,7 @@ export default function Home() {
           setCreateAction(undefined);
         }}
         openAction={createAction}
+        onPostCreated={reloadPosts}
       />
 
       {/* Followers/Following Modal */}

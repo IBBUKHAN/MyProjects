@@ -46,9 +46,11 @@ export default function UserProfile() {
     enabled: !!profileUserId,
   });
 
-  const { data: userPosts, isLoading: postsLoading } = useQuery<
-    PostWithAuthor[]
-  >({
+  const {
+    data: userPosts,
+    isLoading: postsLoading,
+    refetch: refetchPosts,
+  } = useQuery<PostWithAuthor[]>({
     queryKey: ["/api/users", profileUserId, "posts"],
     queryFn: async () => {
       if (!profileUserId) return [];
@@ -60,6 +62,11 @@ export default function UserProfile() {
     },
     enabled: !!profileUserId,
   });
+
+  // Handle post deletion in real-time
+  const handlePostDeleted = () => {
+    refetchPosts();
+  };
 
   const { data: followers } = useQuery<Omit<User, "password">[]>({
     queryKey: ["/api/users", profileUserId, "followers"],
@@ -330,7 +337,11 @@ export default function UserProfile() {
               ) : (
                 <div className="space-y-4">
                   {userPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
+                    <PostCard
+                      key={post.id}
+                      post={post}
+                      onPostDeleted={handlePostDeleted}
+                    />
                   ))}
                 </div>
               )}

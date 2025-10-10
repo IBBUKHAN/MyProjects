@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { X, Image, Tag, Smile } from "lucide-react";
+import { X, Image, Tag, Smile, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,12 +18,14 @@ interface CreatePostModalProps {
   isOpen: boolean;
   onClose: () => void;
   openAction?: "image" | "text";
+  onPostCreated?: () => void;
 }
 
 export function CreatePostModal({
   isOpen,
   onClose,
   openAction,
+  onPostCreated,
 }: CreatePostModalProps) {
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState<string | undefined>(undefined);
@@ -52,6 +54,7 @@ export function CreatePostModal({
       queryClient.invalidateQueries({ queryKey: ["/api/trending"] });
       setContent("");
       setImageUrl(undefined);
+      onPostCreated?.(); // Notify parent to refresh posts
       onClose();
     },
     onError: (error) => {
@@ -171,7 +174,11 @@ export function CreatePostModal({
               onClick={handlePickImage}
               disabled={isUploadingImage}
             >
-              <Image className="w-6 h-6 text-primary" strokeWidth={1.5} />
+              {isUploadingImage ? (
+                <Loader2 className="w-6 h-6 text-primary animate-spin" />
+              ) : (
+                <Image className="w-6 h-6 text-primary" strokeWidth={1.5} />
+              )}
             </Button>
             <Button
               variant="ghost"
@@ -204,15 +211,43 @@ export function CreatePostModal({
                 strokeWidth={1.5}
               />
             </Button>
+            {isUploadingImage && (
+              <span className="text-sm text-muted-foreground animate-pulse">
+                Uploading image...
+              </span>
+            )}
           </div>
 
-          {imageUrl && (
-            <div className="mt-4">
+          {/* Image uploading skeleton/loader */}
+          {isUploadingImage && (
+            <div className="mt-4 relative">
+              <div className="rounded-lg bg-accent/20 h-64 w-full flex items-center justify-center animate-pulse">
+                <div className="text-center">
+                  <Loader2 className="w-12 h-12 text-primary animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Uploading your image...
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Uploaded image preview */}
+          {imageUrl && !isUploadingImage && (
+            <div className="mt-4 relative group">
               <img
                 src={imageUrl}
                 alt="Selected"
                 className="rounded-lg max-h-64 object-contain w-full"
               />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => setImageUrl(undefined)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
             </div>
           )}
 
