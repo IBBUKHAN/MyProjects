@@ -114,12 +114,26 @@ export const authenticatedApiRequest = async (
   });
 
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
+    let errorMessage = res.statusText || "Request failed";
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          const json = JSON.parse(text);
+          errorMessage = json.message || json.error || text;
+        } catch {
+          errorMessage = text;
+        }
+      }
+    } catch (e) {
+      console.error("Error parsing response:", e);
+    }
+
     if (res.status === 401) {
       await authApi.logout();
       window.location.href = "/login";
     }
-    throw new Error(`${res.status}: ${text}`);
+    throw new Error(`${res.status}: ${errorMessage}`);
   }
 
   return res;

@@ -194,12 +194,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = z
         .object({
           name: z.string().optional(),
-          bio: z.string().optional(),
-          profilePictureUrl: z.string().optional(),
+          bio: z.string().nullable().optional(),
+          profilePictureUrl: z.string().nullable().optional(),
+          birthday: z.string().nullable().optional(),
+          education: z.string().nullable().optional(),
+          country: z.string().nullable().optional(),
+          city: z.string().nullable().optional(),
+          contactNumber: z.string().nullable().optional(),
+          coverImageUrl: z.string().nullable().optional(),
         })
         .parse(req.body);
 
-      const user = await storage.updateUser(req.params.id, updateData);
+      // Convert birthday string to Date if present
+      const processedData: any = {
+        ...updateData,
+        birthday: updateData.birthday ? new Date(updateData.birthday) : null,
+      };
+
+      // Remove birthday if it wasn't in the original request
+      if (!("birthday" in updateData)) {
+        delete processedData.birthday;
+      }
+
+      const user = await storage.updateUser(req.params.id, processedData);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }

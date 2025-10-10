@@ -9,6 +9,9 @@ import {
   MoreHorizontal,
   Smile,
   Image as ImageIcon,
+  X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -47,6 +50,8 @@ export function PostCard({ post }: PostCardProps) {
   const [isCommenting, setIsCommenting] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [showLikesModal, setShowLikesModal] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageZoom, setImageZoom] = useState(1);
 
   const { data: commentsData } = useQuery<
     {
@@ -221,8 +226,12 @@ export function PostCard({ post }: PostCardProps) {
           <img
             src={post.imageUrl}
             alt="Post content"
-            className="rounded-xl w-full object-contain max-h-[480px] bg-muted mx-auto"
+            className="rounded-xl w-full object-contain max-h-[480px] bg-muted mx-auto cursor-pointer hover:opacity-90 transition-opacity"
             data-testid={`post-image-${post.id}`}
+            onClick={() => {
+              setShowImageModal(true);
+              setImageZoom(1);
+            }}
           />
         </div>
       )}
@@ -496,6 +505,55 @@ export function PostCard({ post }: PostCardProps) {
                 ))}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Modal */}
+      <Dialog open={showImageModal} onOpenChange={setShowImageModal}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none [&>button]:hidden">
+          <div className="relative w-full h-full flex items-center justify-center">
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              className="absolute top-4 right-4 z-50 text-white hover:bg-white/20 h-auto px-3 py-2"
+              onClick={() => setShowImageModal(false)}
+            >
+              <X className="w-5 h-5" />
+            </Button>
+
+            {/* Zoom controls */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-2 bg-black/60 backdrop-blur-sm rounded-full p-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20 rounded-full"
+                onClick={() => setImageZoom((z) => Math.max(0.5, z - 0.25))}
+              >
+                <ZoomOut className="w-5 h-5" />
+              </Button>
+              <span className="text-white px-3 py-2 text-sm font-medium">
+                {Math.round(imageZoom * 100)}%
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/20 rounded-full"
+                onClick={() => setImageZoom((z) => Math.min(3, z + 0.25))}
+              >
+                <ZoomIn className="w-5 h-5" />
+              </Button>
+            </div>
+
+            {/* Image */}
+            <div className="overflow-auto max-w-full max-h-[90vh] flex items-center justify-center p-8">
+              <img
+                src={post.imageUrl || ""}
+                alt="Post content"
+                className="transition-transform duration-200"
+                style={{ transform: `scale(${imageZoom})` }}
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
