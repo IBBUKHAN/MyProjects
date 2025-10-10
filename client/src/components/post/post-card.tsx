@@ -339,7 +339,7 @@ export function PostCard({ post }: PostCardProps) {
       {isCommenting && (
         <div className="mt-4 space-y-4">
           {/* Input row */}
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <Avatar className="w-9 h-9">
               <AvatarImage
                 src={user?.profilePictureUrl || undefined}
@@ -360,7 +360,8 @@ export function PostCard({ post }: PostCardProps) {
                     if (commentText.trim()) commentMutation.mutate();
                   }
                 }}
-                className="min-h-[44px] rounded-full resize-none pr-24"
+                className="min-h-[44px] rounded-full resize-none pr-24 py-3 flex items-center"
+                style={{ paddingTop: "12px", paddingBottom: "12px" }}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
                 <Button
@@ -381,15 +382,18 @@ export function PostCard({ post }: PostCardProps) {
                 >
                   <ImageIcon className="w-5 h-5 text-muted-foreground" />
                 </Button>
-                <Button
-                  size="sm"
-                  className="h-8 px-4"
-                  disabled={!commentText.trim() || commentMutation.isPending}
-                  onClick={() => commentMutation.mutate()}
-                  type="button"
-                >
-                  Comment
-                </Button>
+                {commentText.trim() && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-8 px-4"
+                    disabled={commentMutation.isPending}
+                    onClick={() => commentMutation.mutate()}
+                    type="button"
+                  >
+                    Comment
+                  </Button>
+                )}
               </div>
             </div>
           </div>
