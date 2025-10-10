@@ -37,6 +37,7 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likesCount, setLikesCount] = useState(post.likes.length);
+  const [commentsCount, setCommentsCount] = useState(post.comments.length);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
@@ -128,7 +129,13 @@ export function PostCard({ post }: PostCardProps) {
     onSuccess: async () => {
       setCommentText("");
       setIsCommenting(false);
+      // Immediately update the comment count locally
+      setCommentsCount((prev) => prev + 1);
+      // Invalidate queries to refresh the data
       await queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["/api/posts", post.id, "comments"],
+      });
       toast({ title: "Comment added" });
     },
     onError: () => {
@@ -295,7 +302,7 @@ export function PostCard({ post }: PostCardProps) {
           data-testid={`button-comment-${post.id}`}
         >
           <MessageCircle className="w-5 h-5" />
-          <span className="text-sm font-medium">{post.comments.length}</span>
+          <span className="text-sm font-medium">{commentsCount}</span>
         </Button>
         <Button
           variant="ghost"
@@ -303,10 +310,22 @@ export function PostCard({ post }: PostCardProps) {
           className="flex items-center gap-2 text-muted-foreground hover:text-accent transition-colors ml-auto"
           onClick={async () => {
             const url = `${window.location.origin}/?post=${post.id}`;
+
             try {
-              await navigator.clipboard.writeText(url);
+              if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(url);
+              } else {
+                // Fallback for HTTP or insecure contexts
+                const textArea = document.createElement("textarea");
+                textArea.value = url;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("copy");
+                document.body.removeChild(textArea);
+              }
+
               toast({ title: "Link copied", description: url });
-            } catch {
+            } catch (err) {
               toast({ title: "Could not copy link", variant: "destructive" });
             }
           }}

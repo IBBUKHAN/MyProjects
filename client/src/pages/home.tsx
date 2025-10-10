@@ -329,7 +329,7 @@ export default function Home() {
             {/* Main Feed */}
             <main className="lg:col-span-6">
               {/* Create Post Card */}
-              <div className="glass-effect rounded-2xl p-6 mb-6">
+              <div className="glass-effect rounded-2xl p-6 mb-6 mt-4">
                 <div className="flex items-center gap-4 mb-4">
                   <Avatar
                     className="w-12 h-12"
