@@ -12,8 +12,15 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  registerWithCognito,
+  loginWithCognito,
+  verifyToken,
+  confirmSignUp,
+  resendConfirmationCode,
+} from "./cognito";
 
-// JWT configuration
+// JWT configuration (keeping for backward compatibility)
 const JWT_SECRET = process.env.SESSION_SECRET || "your-secret-key";
 const JWT_EXPIRES_IN = "24h";
 
@@ -41,7 +48,7 @@ const s3 =
       })
     : undefined;
 
-// JWT middleware
+// Cognito authentication middleware
 const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -51,14 +58,18 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-    const user = await storage.getUser(decoded.userId);
+    // Verify token with Cognito
+    const cognitoUser = await verifyToken(token);
+
+    // Get user from database using Cognito sub (user ID)
+    const user = await storage.getUser(cognitoUser.sub);
     if (!user) {
       return res.status(401).json({ message: "Invalid token" });
     }
     req.user = user;
     next();
   } catch (error) {
+    console.error("Token verification error:", error);
     return res.status(403).json({ message: "Invalid token" });
   }
 };
@@ -69,38 +80,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = registerSchema.parse(req.body);
 
-      // Check if user already exists
+      // Check if user already exists in our database
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
         return res.status(400).json({ message: "User already exists" });
       }
 
-      // Hash password
-      const hashedPassword = await bcrypt.hash(validatedData.password, 10);
+      // Register with AWS Cognito - Cognito will send verification email
+      const cognitoResult = await registerWithCognito(
+        validatedData.email,
+        validatedData.password,
+        validatedData.name
+      );
 
-      const user = await storage.createUser({
-        ...validatedData,
-        password: hashedPassword,
-      });
+      // Create user in our database with Cognito user ID
+      const user = await storage.createUser(
+        {
+          email: cognitoResult.email,
+          name: cognitoResult.name,
+          password: "COGNITO_MANAGED", // Password is managed by Cognito
+        },
+        cognitoResult.userId // Pass Cognito user ID separately
+      );
 
-      // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN,
-      });
-
-      // Remove password from response
-      const { password, ...userWithoutPassword } = user;
-
+      // Return success - user needs to verify email before logging in
       res.json({
-        user: userWithoutPassword,
-        token,
+        message:
+          "Registration successful! Please check your email for verification code.",
+        email: cognitoResult.email,
+        userId: cognitoResult.userId,
       });
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
       console.error("Registration error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(400).json({ message: error.message || "Registration failed" });
     }
   });
 
@@ -108,41 +123,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = loginSchema.parse(req.body);
 
-      const user = await storage.getUserByEmail(validatedData.email);
+      // Authenticate with AWS Cognito
+      const tokens = await loginWithCognito(
+        validatedData.email,
+        validatedData.password
+      );
+
+      // Verify token to get user info
+      const cognitoUser = await verifyToken(tokens.accessToken);
+
+      // Get user from our database
+      const user = await storage.getUser(cognitoUser.sub);
       if (!user) {
         return res
           .status(401)
           .json({ message: "Incorrect email or password. Please try again." });
       }
 
-      const isValidPassword = await bcrypt.compare(
-        validatedData.password,
-        user.password
-      );
-      if (!isValidPassword) {
-        return res
-          .status(401)
-          .json({ message: "Incorrect email or password. Please try again." });
-      }
-
-      // Generate JWT token
-      const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN,
-      });
-
       // Remove password from response
       const { password, ...userWithoutPassword } = user;
 
       res.json({
         user: userWithoutPassword,
-        token,
+        token: tokens.accessToken, // Return Cognito access token
       });
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
       console.error("Login error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      res.status(401).json({
+        message:
+          error.message || "Incorrect email or password. Please try again.",
+      });
+    }
+  });
+
+  // Email verification endpoint
+  app.post("/api/auth/verify", async (req, res) => {
+    try {
+      const { email, code, password } = z
+        .object({
+          email: z.string().email(),
+          code: z.string().min(1),
+          password: z.string().min(1),
+        })
+        .parse(req.body);
+
+      // Verify the OTP code with Cognito
+      await confirmSignUp(email, code);
+
+      // Automatically log the user in after successful verification
+      const tokens = await loginWithCognito(email, password);
+
+      // Verify token to get user info
+      const cognitoUser = await verifyToken(tokens.accessToken);
+
+      // Get user from our database
+      const user = await storage.getUser(cognitoUser.sub);
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
+
+      res.json({
+        message: "Email verified successfully!",
+        success: true,
+        user: userWithoutPassword,
+        token: tokens.accessToken, // Return Cognito access token
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Verification error:", error);
+      res.status(400).json({ message: error.message || "Verification failed" });
+    }
+  });
+
+  // Resend verification code endpoint
+  app.post("/api/auth/resend-code", async (req, res) => {
+    try {
+      const { email } = z
+        .object({
+          email: z.string().email(),
+        })
+        .parse(req.body);
+
+      await resendConfirmationCode(email);
+
+      res.json({
+        message: "Verification code resent to your email.",
+        success: true,
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Resend code error:", error);
+      res
+        .status(400)
+        .json({ message: error.message || "Failed to resend code" });
     }
   });
 

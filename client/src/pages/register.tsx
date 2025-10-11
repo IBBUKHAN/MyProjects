@@ -48,14 +48,21 @@ export default function Register() {
 
   const registerMutation = useMutation({
     mutationFn: (data: RegisterData) => authApi.register(data),
-    onSuccess: (data) => {
-      setUser(data.user);
+    onSuccess: (data: any) => {
+      // Store email and password for verification page (auto-login after verification)
+      const email = data.email || form.getValues("email");
+      const password = form.getValues("password");
+      localStorage.setItem("pendingVerificationEmail", email);
+      localStorage.setItem("pendingVerificationPassword", password);
+
       toast({
-        title: "Welcome to EchoMateLite! 🎉",
-        description: "Your account has been created successfully.",
+        title: "Registration Successful! 🎉",
+        description:
+          "We've sent a verification code to your email. Please check your inbox.",
       });
-      // Automatically log in and redirect to home
-      navigate("/");
+
+      // Redirect to verification page
+      navigate(`/verify-email?email=${encodeURIComponent(email)}`);
     },
     onError: (error) => {
       toast({

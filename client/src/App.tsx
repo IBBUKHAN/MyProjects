@@ -11,6 +11,7 @@ import { useAuthStore } from "@/lib/store";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import VerifyEmail from "@/pages/verify-email";
 import Home from "@/pages/home";
 import Profile from "@/pages/profile";
 import UserProfile from "@/pages/user-profile";
@@ -76,6 +77,12 @@ function Router() {
       <Route path="/register">
         <PublicRoute>
           <Register />
+        </PublicRoute>
+      </Route>
+
+      <Route path="/verify-email">
+        <PublicRoute>
+          <VerifyEmail />
         </PublicRoute>
       </Route>
 

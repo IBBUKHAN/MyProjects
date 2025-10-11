@@ -47,12 +47,31 @@ export default function Login() {
       });
       navigate("/");
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Login failed",
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      const errorMessage = error.message || "Login failed";
+
+      // Check if user needs to verify email
+      if (errorMessage.includes("verify your email")) {
+        const email = form.getValues("email");
+        localStorage.setItem("pendingVerificationEmail", email);
+
+        toast({
+          title: "Email Not Verified ✉️",
+          description: "Redirecting to verification page...",
+          variant: "destructive",
+        });
+
+        // Redirect to verification page after a short delay
+        setTimeout(() => {
+          navigate(`/verify-email?email=${encodeURIComponent(email)}`);
+        }, 1500);
+      } else {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     },
   });
 

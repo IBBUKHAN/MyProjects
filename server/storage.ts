@@ -25,7 +25,7 @@ export interface IStorage {
   // User methods
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(insertUser: InsertUser): Promise<User>;
+  createUser(insertUser: InsertUser, cognitoUserId?: string): Promise<User>;
   updateUser(id: string, data: Partial<InsertUser>): Promise<User | undefined>;
 
   // Post methods
@@ -105,8 +105,17 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+  async createUser(
+    insertUser: InsertUser,
+    cognitoUserId?: string
+  ): Promise<User> {
+    const userData = cognitoUserId
+      ? { ...insertUser, id: cognitoUserId }
+      : insertUser;
+    const [user] = await db
+      .insert(users)
+      .values(userData as any)
+      .returning();
     return user;
   }
 
