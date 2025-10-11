@@ -48,7 +48,7 @@ const s3 =
       })
     : undefined;
 
-// Cognito authentication middleware
+// Authentication middleware (supports both Cognito and legacy JWT tokens)
 const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -58,7 +58,7 @@ const authenticateToken = async (req: any, res: any, next: any) => {
   }
 
   try {
-    // Verify token with Cognito
+    // First, try to verify token with Cognito
     const cognitoUser = await verifyToken(token);
 
     // Get user from database using Cognito sub (user ID)
@@ -69,8 +69,21 @@ const authenticateToken = async (req: any, res: any, next: any) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error("Token verification error:", error);
-    return res.status(403).json({ message: "Invalid token" });
+    // If Cognito verification fails, try legacy JWT verification
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+
+      // Get user from database using legacy user ID
+      const user = await storage.getUser(decoded.userId);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid token" });
+      }
+      req.user = user;
+      next();
+    } catch (jwtError) {
+      console.error("Token verification error:", jwtError);
+      return res.status(403).json({ message: "Invalid token" });
+    }
   }
 };
 
@@ -123,38 +136,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const validatedData = loginSchema.parse(req.body);
 
-      // Authenticate with AWS Cognito
-      const tokens = await loginWithCognito(
-        validatedData.email,
-        validatedData.password
-      );
+      try {
+        // First, try to authenticate with AWS Cognito
+        const tokens = await loginWithCognito(
+          validatedData.email,
+          validatedData.password
+        );
 
-      // Verify token to get user info
-      const cognitoUser = await verifyToken(tokens.accessToken);
+        // Verify token to get user info
+        const cognitoUser = await verifyToken(tokens.accessToken);
 
-      // Get user from our database
-      const user = await storage.getUser(cognitoUser.sub);
-      if (!user) {
-        return res
-          .status(401)
-          .json({ message: "Incorrect email or password. Please try again." });
+        // Get user from our database
+        const user = await storage.getUser(cognitoUser.sub);
+        if (!user) {
+          return res
+            .status(401)
+            .json({ message: "Incorrect email or password" });
+        }
+
+        // Remove password from response
+        const { password, ...userWithoutPassword } = user;
+
+        res.json({
+          user: userWithoutPassword,
+          token: tokens.accessToken, // Return Cognito access token
+        });
+      } catch (cognitoError: any) {
+        // If user not found in Cognito or auth failed, fall back to database authentication
+        // This handles both UserNotFoundException and NotAuthorizedException (which Cognito
+        // may return for non-existent users to prevent user enumeration)
+        if (
+          cognitoError.code === "UserNotFoundException" ||
+          cognitoError.message === "Incorrect email or password"
+        ) {
+          console.log("Cognito authentication failed, checking database...");
+
+          // Check if user exists in database
+          const user = await storage.getUserByEmail(validatedData.email);
+          if (!user) {
+            return res
+              .status(401)
+              .json({ message: "Incorrect email or password" });
+          }
+
+          // Check if this is a legacy user (password not managed by Cognito)
+          if (user.password === "COGNITO_MANAGED") {
+            // This is a Cognito user, don't fall back to database
+            return res
+              .status(401)
+              .json({ message: "Incorrect email or password" });
+          }
+
+          // Verify password with bcrypt (for legacy users)
+          const isPasswordValid = await bcrypt.compare(
+            validatedData.password,
+            user.password
+          );
+          if (!isPasswordValid) {
+            return res
+              .status(401)
+              .json({ message: "Incorrect email or password" });
+          }
+
+          // Generate JWT token for legacy user
+          const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+            expiresIn: JWT_EXPIRES_IN,
+          });
+
+          // Remove password from response
+          const { password, ...userWithoutPassword } = user;
+
+          console.log(`Legacy user ${user.email} logged in successfully`);
+
+          res.json({
+            user: userWithoutPassword,
+            token, // Return JWT token for legacy users
+          });
+        } else {
+          // For other Cognito errors (like UserNotConfirmedException), throw them
+          throw cognitoError;
+        }
       }
-
-      // Remove password from response
-      const { password, ...userWithoutPassword } = user;
-
-      res.json({
-        user: userWithoutPassword,
-        token: tokens.accessToken, // Return Cognito access token
-      });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: error.errors[0].message });
       }
       console.error("Login error:", error);
       res.status(401).json({
-        message:
-          error.message || "Incorrect email or password. Please try again.",
+        message: error.message || "Incorrect email or password",
       });
     }
   });

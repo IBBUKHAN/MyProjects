@@ -173,7 +173,10 @@ export async function loginWithCognito(
       throw new Error("Incorrect email or password");
     }
     if (error.name === "UserNotFoundException") {
-      throw new Error("Incorrect email or password");
+      // Re-throw with specific error type so we can handle fallback to DB
+      const err: any = new Error("User not found in Cognito");
+      err.code = "UserNotFoundException";
+      throw err;
     }
     if (error.name === "UserNotConfirmedException") {
       throw new Error(
