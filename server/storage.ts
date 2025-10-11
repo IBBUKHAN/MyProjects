@@ -32,7 +32,8 @@ export interface IStorage {
   getPosts(
     userId: string,
     limit?: number,
-    offset?: number
+    offset?: number,
+    tag?: string
   ): Promise<PostWithAuthor[]>;
   getPost(id: string): Promise<Post | undefined>;
   getPostWithAuthor(
@@ -125,8 +126,61 @@ export class DatabaseStorage implements IStorage {
   async getPosts(
     userId: string,
     limit = 20,
-    offset = 0
+    offset = 0,
+    tag?: string
   ): Promise<PostWithAuthor[]> {
+    // If tag is provided, fetch all posts first and filter by tag
+    // This matches the logic used in getTrendingTopics
+    if (tag) {
+      const tagWithHash = `#${tag.toLowerCase()}`;
+      const hashtagRegex = /#[A-Za-z0-9_]+/g;
+
+      const allPostsData = await db
+        .select()
+        .from(posts)
+        .orderBy(desc(posts.createdAt));
+
+      // Filter posts that contain the tag
+      const filteredPosts = allPostsData.filter((post) => {
+        if (!post.content) return false;
+        const matches = post.content.match(hashtagRegex) || [];
+        const lowercaseTags = matches.map((m) => m.toLowerCase());
+        return lowercaseTags.includes(tagWithHash);
+      });
+
+      // Apply limit and offset after filtering
+      const paginatedPosts = filteredPosts.slice(offset, offset + limit);
+
+      const postsWithDetails = await Promise.all(
+        paginatedPosts.map(async (post) => {
+          const [author] = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, post.userId));
+          const likes = await db
+            .select()
+            .from(postLikes)
+            .where(eq(postLikes.postId, post.id));
+          const comments = await db
+            .select()
+            .from(postComments)
+            .where(eq(postComments.postId, post.id));
+          const isLiked = likes.some((like) => like.userId === userId);
+
+          return {
+            ...post,
+            author,
+            likes,
+            comments,
+            isLiked,
+          };
+        })
+      );
+
+      return postsWithDetails;
+    }
+
+    // No tag filter - use normal pagination
     const postsData = await db
       .select()
       .from(posts)

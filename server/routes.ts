@@ -244,20 +244,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       const offset = parseInt(req.query.offset as string) || 0;
-
-      const posts = await storage.getPosts(req.user.id, limit, offset);
       const tag = (req.query.tag as string | undefined)
         ?.toLowerCase()
         ?.replace(/^#/, "");
-      if (tag) {
-        const tagWithHash = `#${tag}`;
-        const filtered = posts.filter(
-          (p) =>
-            typeof p.content === "string" &&
-            p.content.toLowerCase().includes(tagWithHash)
-        );
-        return res.json(filtered);
-      }
+
+      const posts = await storage.getPosts(req.user.id, limit, offset, tag);
       return res.json(posts);
     } catch (error) {
       console.error("Get posts error:", error);
