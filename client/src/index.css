@@ -153,6 +153,17 @@
 }
 
 @layer components {
+  /* Prevent global transitions from affecting dropdown positioning */
+  [data-radix-popper-content-wrapper] {
+    transition: none !important;
+  }
+
+  [role="menu"],
+  [data-radix-dropdown-menu-content],
+  [data-radix-popover-content] {
+    transition: opacity 0.2s ease-out !important;
+  }
+
   .glass-effect {
     background: var(--glass-bg);
     backdrop-filter: blur(20px);
