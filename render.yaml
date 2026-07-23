@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: uidai-chatbot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: ADMIN_API_TOKEN
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash-lite
+      - key: GEMINI_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      - key: CHROMA_DB_DIR
+        value: ./chroma_db
+      - key: CHROMA_COLLECTION_NAME
+        value: uidai_docs
+      - key: BOT_NAME
+        value: Aadhaar Sevak
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
