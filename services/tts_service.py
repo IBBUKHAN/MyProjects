@@ -1,4 +1,4 @@
-"""ElevenLabs streaming TTS with sentence buffering for realtime chat audio."""
+"""ElevenLabs TTS helpers for chat audio (full answer at end of stream)."""
 
 import asyncio
 import base64

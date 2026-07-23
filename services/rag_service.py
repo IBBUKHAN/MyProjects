@@ -1,5 +1,6 @@
 """RAG pipeline with streaming SSE support for UIDAI chatbot."""
 
+import base64
 import time
 import uuid
 from datetime import datetime
@@ -11,7 +12,11 @@ from starlette.concurrency import run_in_threadpool
 
 import config
 from core.vector_store import VectorStore
-from services.tts_service import SentenceBuffer, TtsPipeline
+from services.tts_service import (
+    synthesize_tts,
+    tts_sample_rate,
+    tts_stream_format,
+)
 
 gemini_client = genai.Client(api_key=config.GOOGLE_API_KEY)
 
@@ -271,12 +276,6 @@ async def answer_with_rag_stream(
     if enable_audio and not use_audio:
         print("[RAG] enable_audio=true but ElevenLabs is not configured")
 
-    sentence_buffer = SentenceBuffer()
-    tts: TtsPipeline | None = None
-    if use_audio:
-        tts = TtsPipeline()
-        await tts.start()
-
     streamed_text = ""
     result: Dict[str, Any] | None = None
     tools_announced: set[str] = set()
@@ -318,21 +317,8 @@ async def answer_with_rag_stream(
                 continue
             streamed_text += text
             yield {"type": "answer_chunk", "content": text}
-            if tts:
-                for sentence in sentence_buffer.add(text):
-                    await tts.enqueue(sentence)
-                for audio_event in tts.drain_events():
-                    yield audio_event
         elif kind == "final":
             result = event.get("result") or {}
-
-    if tts:
-        for sentence in sentence_buffer.flush():
-            await tts.enqueue(sentence)
-        total_chunks = await tts.stop()
-        for audio_event in tts.drain_events():
-            yield audio_event
-        yield {"type": "audio_done", "total_chunks": total_chunks}
 
     if result is None:
         result = {
@@ -354,6 +340,26 @@ async def answer_with_rag_stream(
     # If model streamed text but final strip differs, client already got tokens;
     # history stores the cleaned version.
     add_to_history(session_id, question, full_answer)
+
+    # Full audio before sources so UI can start playback sooner
+    if use_audio and full_answer:
+        try:
+            audio = await synthesize_tts(full_answer)
+            event: Dict[str, Any] = {
+                "type": "audio_chunk",
+                "seq": 1,
+                "format": tts_stream_format(),
+                "data": base64.b64encode(audio).decode("ascii"),
+                "complete": True,
+            }
+            sample_rate = tts_sample_rate()
+            if sample_rate:
+                event["sample_rate"] = sample_rate
+            yield event
+            yield {"type": "audio_done", "total_chunks": 1}
+        except Exception as e:
+            print(f"[RAG] TTS error: {e}")
+            yield {"type": "audio_error", "message": str(e)}
 
     if "find_aadhaar_centres_by_pincode" in tools_used:
         yield {"type": "maps", "data": [] if not_found else sources}
