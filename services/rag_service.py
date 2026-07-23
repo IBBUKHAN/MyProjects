@@ -131,8 +131,9 @@ def build_prompt(
     - Never mention Google, Gemini, ChatGPT, OpenAI, LLM, or any model vendor.
 
     Guidelines:
+    - Language (strict): reply in the SAME language as the user's question. If they ask in Hindi/Hinglish, answer in Hindi/Hinglish — do not default to English even if the knowledge base is English; translate the facts.
     - Answer from the knowledge base below only.
-    - If the answer is not there, say so briefly and append [NOT_FOUND] on a new line.
+    - If the answer is not there, say so briefly (in the user's language) and append [NOT_FOUND] on a new line.
     - Keep answers short and structured:
     - Start with 1 short lead sentence (optional).
     - Use bullet points for steps, options, or key facts.

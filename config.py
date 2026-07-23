@@ -43,6 +43,14 @@ ELEVENLABS_USE_SPEAKER_BOOST = os.getenv("ELEVENLABS_USE_SPEAKER_BOOST", "true")
     "yes",
 )
 
+# Comma-separated acronyms spelled letter-by-letter in TTS (UIDAI → "U I D A I")
+_DEFAULT_TTS_SPELL_ACRONYMS = "UIDAI,OTP,PVC,VID,DBT,FAQ,NRI,ASK,KYC,eKYC"
+TTS_SPELL_ACRONYMS = [
+    a.strip()
+    for a in os.getenv("TTS_SPELL_ACRONYMS", _DEFAULT_TTS_SPELL_ACRONYMS).split(",")
+    if a.strip()
+]
+
 CRAWL_MAX_PAGES = int(os.getenv("CRAWL_MAX_PAGES", "200"))
 CRAWL_MAX_DEPTH = int(os.getenv("CRAWL_MAX_DEPTH", "3"))
 

@@ -14,6 +14,33 @@ _MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\([^)]+\)")
 _MARKDOWN_CHARS_RE = re.compile(r"[*_#>`|]")
 
 
+def _spell_letters(term: str) -> str:
+    """UIDAI → 'U I D A I'."""
+    parts: List[str] = []
+    for ch in term:
+        if ch.isalpha():
+            parts.append(ch.upper())
+        elif ch.isdigit():
+            parts.append(ch)
+    return " ".join(parts)
+
+
+def _acronym_patterns() -> List[re.Pattern]:
+    """Longer acronyms first so eKYC wins over KYC."""
+    terms = sorted({t for t in config.TTS_SPELL_ACRONYMS if t}, key=len, reverse=True)
+    return [re.compile(rf"\b{re.escape(term)}\b", re.IGNORECASE) for term in terms]
+
+
+_ACRONYM_PATTERNS = _acronym_patterns()
+
+
+def apply_tts_pronunciations(text: str) -> str:
+    """Expand known acronyms to letter-spaced form for clearer TTS."""
+    for pattern in _ACRONYM_PATTERNS:
+        text = pattern.sub(lambda m: _spell_letters(m.group(0)), text)
+    return text
+
+
 class SentenceBuffer:
     """Accumulate LLM tokens and emit speakable sentence-sized chunks."""
 
@@ -60,10 +87,11 @@ class SentenceBuffer:
 
 
 def strip_for_tts(text: str) -> str:
-    """Remove markdown and markers that sound bad in speech."""
+    """Remove markdown and normalize text for speech (UI text unchanged)."""
     text = text.replace("[NOT_FOUND]", "")
     text = _MARKDOWN_LINK_RE.sub(r"\1", text)
     text = _MARKDOWN_CHARS_RE.sub("", text)
+    text = apply_tts_pronunciations(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
